@@ -15,7 +15,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "utilities.h"
 #include "DB.h"
 
 static char *Usage = "<path:db> ... ";

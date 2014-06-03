@@ -324,7 +324,7 @@ int Open_DB(char* path, HITS_DB *db)
       if (part > 0)
         { status = 1;
           if (nblocks == 0)
-            fprintf(stderr,"%s: DB has not been partitions\n",Prog_Name);
+            fprintf(stderr,"%s: DB has not been partitioned\n",Prog_Name);
           else
             fprintf(stderr,"%s: DB has only %d blocks\n",Prog_Name,nblocks);
           goto exit2;
