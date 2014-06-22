@@ -82,7 +82,7 @@ at the users discretion.  Therefore, one should note carefully to which version 
 a command refers to.  This is especially important for any command that identifies reads by their
 index (ordinal position) in the database.
 
-Once the database has been split into blocks, the commands DBread, DBstats, and DBdust below
+Once the database has been split into blocks, the commands DBshow, DBstats, and DBdust below
 and commands yet to come, such as the local alignment finder dalign, can take a block or blocks
 as arguments.  On the command line this is indicated by supplying the name of the DB followed by
 a period and then a block number, e.g. FOO.3.db or simply FOO.3, refers to the 3'rd block of DB
@@ -90,7 +90,7 @@ FOO (assuming of course it has a current partition and said partition has a 3rd 
 should note carefully that a block is a contiguous range of reads such that once it is trimmed
 has a given size in base pairs (as set by DBsplit).  Thus like an entire database, a block can
 both either untrimmed  or trimmed and one needs to again be careful when giving a read index to
-a command such as DBread.
+a command such as DBshow.
 
 All programs add suffixes (e.g. .db) as needed.  The commands of the database library are
 currently as follows:
@@ -131,13 +131,14 @@ the DB as they can always be recreated from it.  (NOT YET AVAILABLE)
 Divide the database <path>.db conceptually into a series of blocks referable to on the command
 line as <path>.1.db, <path>.2.db, ...  If the -x option is set then all reads less than the given
 length are ignored, and if the -a option is not set then secondary reads from a given well are
-also ignored.  The remaining reads are split amongst the blocks so that each block is of size
--s * 1Mbp except for the last which necessarily contains a smaller residual.  The default value
-for -s is 400Mbp because blocks of this size can be compared by our "overlapper" dalign in
-roughly 16Gb of memory.  The blocks are very space efficient in that their sub-index of the
-master .idx is computed on the fly when loaded, and the .bps file of base pairs is shared with
-the master DB.  Any tracks associated with the DB are also computed on the fly when loading
-a database block.
+also ignored.  The remaining reads, constituting what we call the trimmed DB, are split amongst
+the blocks so that each block is of size -s * 1Mbp except for the last which necessarily contains
+a smaller residual.  The default value for -s is 400Mbp because blocks of this size can be
+compared by our "overlapper" dalign in roughly 16Gb of memory.  The blocks are very space
+efficient in that their sub-index of the master .idx is computed on the fly when loaded, and
+the .bps and .qvs files of base pairs and quality values, respectively, is shared with the master
+DB.  Any relevant portions of tracks associated with the DB are also computed on the fly when
+loading a database block.
 
 6. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db>
 
@@ -149,7 +150,7 @@ definition of low complexity takes into account the frequency of a given base.  
 incremental if given a DB to which new data has been added since it was last run on the DB, then
 it will extend the track to include the new reads.  It is important to set this flag for genomes
 with a strong AT/GC bias, albeit the code is a tad slower.  The dust track, if present, is
-understood and used by DBread, DBstats, and dalign.
+understood and used by DBshow, DBstats, and dalign.
 
 DBdust can also be run over an untriimmed DB block in which case it outputs a track encoding
 where the trace file names contain the block number, e.g. .FOO.3.dust.anno and .FOO.3.dust.data,
@@ -164,7 +165,7 @@ Find all block tracks of the form .<path>.#.<track>... and merge them into a sin
 of track data (this is checked), and the files must exist for block 1, 2, 3, ... up to the
 last block number.
 
-7. DBread [-du] <path:db> [ <reads:range> ... ]
+7. DBshow [-du] <path:db> [ <reads:range> ... ]
 
 Displays the reads requested in the database <path>.db in .fasta format.  By default this is
 over the trimmed database, but if -u is set then the entire DB is used.  If no read arguments
