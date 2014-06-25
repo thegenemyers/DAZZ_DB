@@ -231,8 +231,16 @@ void Uncompress_Read(int len, char *s)
 
 //  Convert read in [0-3] representation to ascii representation (end with '\n')
 
-void Letter_Read(char *s)
+void Lower_Read(char *s)
 { static char letter[4] = { 'a', 'c', 'g', 't' };
+
+  for ( ; *s != 4; s++)
+    *s = letter[(int) *s];
+  *s = '\0';
+}
+
+void Upper_Read(char *s)
+{ static char letter[4] = { 'A', 'C', 'G', 'T' };
 
   for ( ; *s != 4; s++)
     *s = letter[(int) *s];
@@ -414,7 +422,9 @@ HITS_TRACK *Load_Track(HITS_DB *db, char *track)
   sprintf(db->path+plen,".%s.anno",track);
   afile = fopen(db->path,"r");
   if (afile == NULL)
-    return (NULL);
+    { db->path[plen] = '\0';
+      return (NULL);
+    }
   sprintf(db->path+plen,".%s.data",track);
   dfile = fopen(db->path,"r");
   db->path[plen] = '\0';
@@ -611,6 +621,7 @@ void Read_All_Sequences(HITS_DB *db, int ascii)
 { FILE      *bases  = (FILE *) db->bases;
   int        nreads = db->nreads;
   HITS_READ *reads = db->reads;
+  void     (*translate)(char *s);
 
   char  *seq;
   int64  o, off;
@@ -625,6 +636,11 @@ void Read_All_Sequences(HITS_DB *db, int ascii)
 
   *seq++ = 4;
 
+  if (ascii == 1)
+    translate = Lower_Read;
+  else
+    translate = Upper_Read;
+
   o = 0;
   for (i = 0; i < nreads; i++)
     { len = reads[i].end - reads[i].beg;
@@ -634,7 +650,7 @@ void Read_All_Sequences(HITS_DB *db, int ascii)
       fread(seq+o,1,COMPRESSED_LEN(len),bases);
       Uncompress_Read(len,seq+o);
       if (ascii)
-        Letter_Read(seq+o);
+        translate(seq+o);
       reads[i].boff = o;
       o += (len+1);
     }
@@ -744,8 +760,12 @@ int Load_Read(HITS_DB *db, int i, char *read, int ascii)
     fseeko(bases,off,SEEK_SET);
   fread(read,1,COMPRESSED_LEN(len),bases);
   Uncompress_Read(len,read);
-  if (ascii)
-    { Letter_Read(read);
+  if (ascii == 1)
+    { Lower_Read(read);
+      read[-1] = '\0';
+    }
+  else if (ascii == 2)
+    { Upper_Read(read);
       read[-1] = '\0';
     }
   else

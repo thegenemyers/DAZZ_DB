@@ -13,21 +13,46 @@
 
 #include "DB.h"
 
-static char *Usage = "<path:db>";
+static char *Usage = "[-U] [-w<int(80)>] <path:db>";
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   FILE       *dbfile;
   int         nfiles;
+  int         UPPER, WIDTH;
 
   //  Process arguments
 
-  Prog_Name = Strdup("DB2fasta","");
+  { int   i, j, k;
+    int   flags[128];
+    char *eptr;
 
-  if (argc != 2)
-    { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
-      exit (1);
-    }
+    ARG_INIT("DB2fasta")
+
+    WIDTH = 80;
+
+    j = 1;
+    for (i = 1; i < argc; i++)
+      if (argv[i][0] == '-')
+        switch (argv[i][1])
+        { default:
+            ARG_FLAGS("U")
+            break;
+          case 'w':
+            ARG_NON_NEGATIVE(WIDTH,"Line width")
+            break;
+        }
+      else
+        argv[j++] = argv[i];
+    argc = j;
+
+    UPPER = 1 + flags['U'];
+
+    if (argc != 2)
+      { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        exit (1);
+      }
+  }
 
   //  Open db and also db image file (dbfile)
 
@@ -93,10 +118,10 @@ int main(int argc, char *argv[])
               fprintf(ofile," RQ=0.%3d",qv);
             fprintf(ofile,"\n");
 
-            Load_Read(db,i,read,1);
+            Load_Read(db,i,read,UPPER);
 
-            for (j = 0; j+70 < len; j += 70)
-              fprintf(ofile,"%.70s\n",read+j);
+            for (j = 0; j+WIDTH < len; j += WIDTH)
+              fprintf(ofile,"%.*s\n",WIDTH,read+j);
             if (j < len)
               fprintf(ofile,"%s\n",read+j);
           }

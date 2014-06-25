@@ -16,32 +16,43 @@
 
 #include "DB.h"
 
-static char *Usage = "[-du] <path:db> [ <reads:range> ... ]";
+static char *Usage = "[-udU] [-w<int(80)>] <path:db> [ <reads:range> ... ]";
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   HITS_TRACK *dust;
   int         reps, *pts;
-  int         DUST;
-  int         TRIM;
+  int         DUST, TRIM, UPPER;
+  int         WIDTH;
 
   //  Process arguments
 
-  { int i, j, k;
-    int flags[128];
+  { int  i, j, k;
+    int  flags[128];
+    char *eptr;
 
-    ARG_INIT("DBread")
+    ARG_INIT("DBshow")
+
+    WIDTH = 80;
 
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
-        { ARG_FLAGS("du") }
+        switch (argv[i][1])
+        { default:
+            ARG_FLAGS("udU")
+            break;
+          case 'w':
+            ARG_NON_NEGATIVE(WIDTH,"Line width")
+            break;
+        }
       else
         argv[j++] = argv[i];
     argc = j;
 
-    DUST = flags['d'];
-    TRIM = 1-flags['u'];
+    DUST  = flags['d'];
+    TRIM  = 1-flags['u'];
+    UPPER = 1+flags['U'];
 
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -55,7 +66,17 @@ int main(int argc, char *argv[])
     exit (1);
 
   if (DUST)
-    dust = Load_Track(db,"dust");
+    { dust = Load_Track(db,"dust");
+      if (dust == NULL && db->part > 0)
+        { int oreads = db->oreads;
+          int ofirst = db->ofirst;
+          db->oreads = db->nreads;
+          db->ofirst = 0;
+          dust = Load_Track(db,Numbered_Suffix("",db->part,".dust"));
+          db->oreads = oreads;
+          db->ofirst = ofirst;
+        }
+    }
   else
     dust = NULL;
 
@@ -81,7 +102,11 @@ int main(int argc, char *argv[])
           else
             b = strtol(argv[c],&eptr,10);
           if (eptr > argv[c])
-            { if (*eptr == 0)
+            { if (b == 0)
+                { fprintf(stderr,"%s: 0 is not a valid index\n",Prog_Name);
+                  exit (1);
+                }
+              if (*eptr == 0)
                 { pts[reps++] = b;
                   pts[reps++] = b;
                   continue;
@@ -119,6 +144,7 @@ int main(int argc, char *argv[])
     int        *anno, *data;
     char       *read;
     int         c, b, e, i;
+    int         hilight;
 
     read = New_Read_Buffer(db);
 
@@ -126,6 +152,10 @@ int main(int argc, char *argv[])
       { anno = (int *) dust->anno;
         data = (int *) dust->data;
       }
+
+    hilight = 'a'-'A';
+    if (UPPER == 1)
+      hilight = -hilight;
 
     reads = db->reads;
     for (c = 0; c < reps; c += 2)
@@ -146,7 +176,7 @@ int main(int argc, char *argv[])
               printf(" RQ=0.%3d",qv);
             printf("\n");
 
-            Load_Read(db,i,read,1);
+            Load_Read(db,i,read,UPPER);
 
             if (dust != NULL)
               { int  s, f, b, e, m;
@@ -158,7 +188,7 @@ int main(int argc, char *argv[])
                       { b = data[j];
                         e = data[j+1];
                         for (m = b; m <= e; m++)
-                          read[m] = (read[m]-'a')+'A';
+                          read[m] += hilight;
                         if (j == s)
                           printf("> ");
                         printf(" [%d,%d]",b,e);
@@ -167,8 +197,8 @@ int main(int argc, char *argv[])
                   }
               }
 
-            for (j = 0; j+70 < len; j += 70)
-              printf("%.70s\n",read+j);
+            for (j = 0; j+WIDTH < len; j += WIDTH)
+              printf("%.*s\n",WIDTH,read+j);
             if (j < len)
               printf("%s\n",read+j);
           }

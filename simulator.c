@@ -300,9 +300,9 @@ static void shotgun(char *source)
       else
         printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
 
-      Letter_Read(rbuffer);
-      for (j = 0; j+100 < elen; j += 100)
-        printf("%.100s\n",rbuffer+j);
+      Lower_Read(rbuffer);
+      for (j = 0; j+80 < elen; j += 80)
+        printf("%.80s\n",rbuffer+j);
       if (j < elen)
         printf("%s\n",rbuffer+j);
 

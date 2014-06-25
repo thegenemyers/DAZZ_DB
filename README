@@ -105,12 +105,14 @@ the header and kept with each read record.  If the files are being added to an e
 and the partition settings of the DB have already been set (see DBsplit below), then the
 partitioning of the database is updated to include the new data.
 
-2. DB2fasta <path:db>
+2. DB2fasta [-U] [-w<int(80)>] <path:db>
 
 The set of .fasta files for the given DB are recreated from the DB exactly as they were input.
 That is, this is a perfect inversion, including the reconstitution of the proper .fasta headers.
 Because of this property, one can, if desired, delete the .fasta source files once they are in
-the DB as they can always be recreated from it.
+the DB as they can always be recreated from it.  By default the output sequences are in lower
+case and 80 chars per line.  The -U option specifies upper case should be used, and the characters
+per line, or line width, can be controlled with the -w option.
 
 3. quiva2DB <path:db> <input:quiva> ...
 
@@ -165,7 +167,7 @@ Find all block tracks of the form .<path>.#.<track>... and merge them into a sin
 of track data (this is checked), and the files must exist for block 1, 2, 3, ... up to the
 last block number.
 
-7. DBshow [-du] <path:db> [ <reads:range> ... ]
+8. DBshow [-udU] [-w<int(80)>] <path:db> [ <reads:range> ... ]
 
 Displays the reads requested in the database <path>.db in .fasta format.  By default this is
 over the trimmed database, but if -u is set then the entire DB is used.  If no read arguments
@@ -179,12 +181,15 @@ the last read in the active db.  As another example, 1-# displays every read in 
 (the default).
 
 If the -d option is set then the .dust track intervals are also displayed in an additional
-header line and the low complexity bases within a sequence are displayed in upper-case.
+header line and the low complexity bases within a sequence are displayed in the case opposite
+that used for all the other bases.  By default the output sequences are in lower case and 80
+chars per line.  The -U option specifies upper case should be used, and the characters per
+line, or line width, can be controlled with the -w option.
 
 The .fasta file that is output can be converted into a DB by fasta2DB (if the -d option is
 not set), providing a simple way to make a DB of a subset of the reads for testing purposes.
 
-8. DBstats [-a] [-x<int>] [-b<int(1000)] <path:db>
+9. DBstats [-a] [-x<int>] [-b<int(1000)] <path:db>
 
 Show overview statistics for all the reads in the data base <path>.db that are not shorter than
 the length given by the -x option (if given).   A histogram of read lengths is also included
@@ -192,13 +197,13 @@ where the bucket size can be controlled with the -b option.  Normally, if severa
 from the same well (insert), then only the longest read from the well is reported in the
 statistics.  If the -a flag is set then all reads are reported.
 
-9. DBrm <path:db> ...
+10. DBrm <path:db> ...
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as there
 are at least two and often several secondary files for each DB including track files, and all
 of these are removed by DBrm.
 
-10. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
+11. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
                               [-m<int(10000)>]  [-s<int(2000)>]
                               [-x<int(4000)>]   [-e<double(.15)>]
                               [-M<file>]
@@ -221,3 +226,68 @@ per read, ASCII encoded.  This "map" file essentially tells one where every read
 assembly and is very useful for debugging and testing purposes.  If a read pair is say b,e then
 if b < e the read was sampled from [b,e] in the forward direction, and from [e,b] in the reverse
 direction otherwise.
+
+Example:
+
+     A small complete example of most of the commands above. 
+
+> simulator 1.0 >G.fasta   //  Generate a 20x data sets of a 1Mb genome
+> fasta2DB G G.fasta       //  Create a compressed data base of the reads, G.db
+> rm G.fasta               //  Redundant, recreate any time with "DB2fasta G"
+> DBsplit -s11 G           //  Split G into 2 parts of size ~ 11MB each
+> DBdust G.1               //  Produce a "dust" track on each part (just to illustrate)
+> DBdust G.2
+> Catrack G                //  Create one track for the entire DB from the two sub-tracks
+> rm G.*.dust.*            //  Clean up the sub-tracks
+> DBstats G                //  Take a look at the statistics for the database
+
+Statistics for all wells in the data set
+
+          1,862 reads       out of           1,862     0.0% loss
+     20,001,184 base pairs  out of      20,001,184     0.0% loss
+
+Base composition: 0.250(A) 0.250(C) 0.250(G) 0.250(T)
+
+         10,741 average read length
+          2,167 standard deviation
+
+Distribution of Read Lengths (Bin size = 1,000)
+
+    Bin:      Count  % Reads  % Bases   Average
+ 21,000:          2      0.1      0.2    21397
+ 20,000:          0      0.1      0.2    21397
+ 19,000:          2      0.2      0.4    20541
+ 18,000:          1      0.3      0.5    20189
+ 17,000:         10      0.8      1.4    18495
+ 16,000:         15      1.6      2.6    17503
+ 15,000:         30      3.2      4.9    16444
+ 14,000:         81      7.6     10.8    15300
+ 13,000:        140     15.1     20.2    14381
+ 12,000:        202     25.9     32.8    13589
+ 11,000:        286     41.3     49.2    12796
+ 10,000:        345     59.8     67.3    12084
+  9,000:        351     78.7     84.0    11472
+  8,000:        248     92.0     94.6    11045
+  7,000:        106     97.7     98.6    10842
+  6,000:         40     99.8     99.9    10749
+  5,000:          3    100.0    100.0    10741
+
+136 low-complexity intervals totaling 1,985 bases
+
+> ls -al
+total 8832576
+drwxr-xr-x  28 myersg  staff         952 Jun 24 15:46 .
+drwxr-xr-x  10 myersg  staff         340 Jun 16 15:45 ..
+-rw-r--r--   1 myersg  staff     5000992 Jun 24 15:46 .G.bps
+-rw-r--r--   1 myersg  staff        7460 Jun 24 15:46 .G.dust.anno
+-rw-r--r--   1 myersg  staff        1088 Jun 24 15:46 .G.dust.data
+-rw-r--r--   1 myersg  staff       59696 Jun 24 15:46 .G.idx
+-rw-r--r--   1 myersg  staff         162 Jun 24 13:03 G.db
+> cat G.db
+files =         1
+       1862 G Sim
+blocks =         2
+size =        11 cutoff =         0 all = 0
+         0         0
+      1024      1024
+      1862      1862

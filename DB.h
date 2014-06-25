@@ -121,7 +121,8 @@ void   Compress_Read(int len, char *s);   //  Compress read in-place into 2-bit 
 void Uncompress_Read(int len, char *s);   //  Uncompress read in-place into numeric form
 void      Print_Read(char *s, int width);
 
-void Letter_Read(char *s);    //  Convert read from numbers to letters (0-3 to ACGT)
+void Lower_Read(char *s);     //  Convert read from numbers to lowercase letters (0-3 to acgt)
+void Upper_Read(char *s);     //  Convert read from numbers to uppercase letters (0-3 to ACGT)
 void Number_Read(char *s);    //  Convert read from letters to numbers
 
 
@@ -245,8 +246,8 @@ void Trim_DB(HITS_DB *db);
   // Allocate a block big enough for all the uncompressed sequences, read them into it,
   //   reset the 'off' in each read record to be its in-memory offset, and set the
   //   bases pointer to point at the block after closing the bases file.  If ascii is
-  //   non-zero then the reads are converted to ACGT ascii, otherwise the reads are left
-  //   as numeric strings over 0(A), 1(C), 2(G), and 3(T).
+  //   1 then the reads are converted to lowercase ascii, if 2 then uppercase ascii, and
+  //   otherwise the reads are left as numeric strings over 0(A), 1(C), 2(G), and 3(T).
 
 void Read_All_Sequences(HITS_DB *db, int ascii);
 

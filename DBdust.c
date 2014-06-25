@@ -98,12 +98,6 @@ int main(int argc, char *argv[])
 
   if (Open_DB(argv[1],db))
     exit (1);
-/*
-  if (db->part > 0)
-    { fprintf(stderr,"%s: You must run DBdust on the entire DB\n",Prog_Name);
-      exit (1);
-    }
-*/
 
   { char *pwd, *root, *fname;
     int   size;
@@ -113,8 +107,10 @@ int main(int argc, char *argv[])
     size  = 4;
 
     fname = Catenate(pwd,PATHSEP,root,".dust.anno");
-    if ((afile = fopen(fname,"r+")) == NULL)
-      { afile = Fopen(fname,"w");
+    if ((afile = fopen(fname,"r+")) == NULL || db->part > 0)
+      { if (afile != NULL)
+          fclose(afile);
+        afile = Fopen(fname,"w");
         dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"w");
         if (dfile == NULL || afile == NULL)
           exit (1);

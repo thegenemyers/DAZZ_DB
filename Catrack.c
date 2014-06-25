@@ -168,7 +168,6 @@ int main(int argc, char *argv[])
                 dlen = anno8;
               }
             trackoff += dlen;
-printf(" %lld\n",dlen);
 
             for (i = 1024; i < dlen; i += 1024)
               { fread(data,1024,1,dfile);

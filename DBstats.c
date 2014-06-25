@@ -171,6 +171,11 @@ int main(int argc, char *argv[])
   { HITS_TRACK *dust;
 
     dust = Load_Track(&db,"dust");
+    if (dust == NULL && db.part > 0)
+      { db.oreads = db.nreads;
+        db.ofirst = 0;
+        dust = Load_Track(&db,Numbered_Suffix("",db.part,".dust")); 
+      }
     if (dust != NULL)
       { void *data = dust->data;
         int  *anno = (int *) dust->anno;
