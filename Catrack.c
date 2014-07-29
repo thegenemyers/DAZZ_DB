@@ -28,8 +28,10 @@ int main(int argc, char *argv[])
   FILE *aout, *dout;
   int   VERBOSE;
 
-  { int i, j, k;
-    int flags[256];
+  //  Process arguments
+
+  { int   i, j, k;
+    int   flags[128];
 
     ARG_INIT("Catrack")
 
@@ -98,6 +100,11 @@ int main(int argc, char *argv[])
         if (afile == NULL)
           break;
         dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),"r");
+
+        if (VERBOSE)
+          { fprintf(stderr,"Concatenating %s.%d.%s ...",prefix,nfiles+1,argv[2]);
+            fflush(stderr);
+          }
   
         fread(&tracklen,sizeof(int),1,afile);
         fread(&size,sizeof(int),1,afile);

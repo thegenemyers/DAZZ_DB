@@ -35,7 +35,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "<path:string> <input:fasta> ...";
+static char *Usage = "[-v] <path:string> <input:fasta> ...";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -71,14 +71,30 @@ int main(int argc, char *argv[])
   int     oreads;
   int64   offset;
 
+  int     VERBOSE;
+
   //   Usage: <path:string> <input:fasta> ...
 
-  Prog_Name = Strdup("fasta2DB","");
+  { int   i, j, k;
+    int   flags[128];
 
-  if (argc <= 2)
-    { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
-      exit (1);
-    }
+    ARG_INIT("fasta2DB")
+
+    j = 1;
+    for (i = 1; i < argc; i++)
+      if (argv[i][0] == '-')
+        { ARG_FLAGS("v") }
+      else
+        argv[j++] = argv[i];
+    argc = j;
+
+    VERBOSE = flags['v'];
+
+    if (argc <= 2)
+      { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        exit (1);
+      }
+  }
 
   //  Try to open DB file, if present then adding to DB, otherwise creating new DB.  Set up
   //  variables as follows:
@@ -215,6 +231,11 @@ int main(int argc, char *argv[])
           flist[ofiles++] = core;
           free(path);
         }
+
+        if (VERBOSE)
+          { fprintf(stderr,"Adding '%s' ...\n",core);
+            fflush(stderr);
+          }
 
         //  Get the header of the first line, check that it has PACBIO format, and record
         //    prolog in 'prolog'.
@@ -403,6 +424,11 @@ int main(int argc, char *argv[])
       HITS_READ  record;
       int        i;
 
+      if (VERBOSE)
+        { fprintf(stderr,"Updating block partition ...\n");
+          fflush(stderr);
+        }
+
       //  Read the block portion of the existing db image getting the indices of the first
       //    read in the last block of the exisiting db as well as the partition parameters.
       //    Copy the old image block information to the new block information (except for
@@ -493,6 +519,8 @@ error:
   if (boff == 0)
     unlink(Catenate(pwd,PATHSEP,root,".bps"));
 
+  if (istub != NULL)
+    fclose(istub);
   fclose(ostub);
   unlink(Catenate(pwd,"/",root,".dbx"));
 

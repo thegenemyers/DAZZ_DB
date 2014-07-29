@@ -46,6 +46,8 @@ int main(int argc, char *argv[])
 { HITS_DB   _db, *db = &_db;
   FILE      *afile, *dfile;
   int        indx, nreads;
+  int       *mask;
+  Candidate *cptr;
 
   int        WINDOW;
   double     THRESH;
@@ -99,6 +101,11 @@ int main(int argc, char *argv[])
   if (Open_DB(argv[1],db))
     exit (1);
 
+  mask = (int *) Malloc((db->maxlen+1)*sizeof(int),"Allocating mask vector");
+  cptr = (Candidate *) Malloc((WINDOW+1)*sizeof(Candidate),"Allocating candidate vector");
+  if (mask == NULL || cptr == NULL)
+    exit (1);
+
   { char *pwd, *root, *fname;
     int   size;
 
@@ -141,21 +148,16 @@ int main(int argc, char *argv[])
     free(root);
   }
 
-  { int       *mask, *mask1;
+  { int       *mask1;
     char      *read, *lag2;
     int        wcount[64], lcount[64];
-    Candidate *cptr, *aptr;
+    Candidate *aptr;
     double     skew[64], thresh2r;
     int        thresh2i;
     int        i;
 
     read = New_Read_Buffer(db);
     lag2 = read-2;
-
-    mask = (int *) Malloc((db->maxlen+1)*sizeof(int),"Allocating mask vector");
-    cptr = (Candidate *) Malloc((WINDOW+1)*sizeof(Candidate),"Allocating candidate vector");
-    if (mask == NULL || cptr == NULL)
-      exit (1);
 
     mask1 = mask+1;
     *mask = -2;

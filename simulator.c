@@ -39,7 +39,7 @@
 
 static char *Usage[] = { "<genlen:double> [-c<double(20.)>] [-b<double(.5)>] [-r<int>]",
                          "                [-m<int(10000)>]  [-s<int(2000)>]  [-x<int(4000)>]",
-                         "                [-e<double(.15)>] [-M<file>]",
+                         "                [-e<double(.15)>] [-M<file>]"
                        };
 
 static int    GENOME;     // -g option * 1Mbp
@@ -381,11 +381,7 @@ int main(int argc, char *argv[])
             ARG_NON_NEGATIVE(RSHORT,"Read length minimum")
             break;
           case 'e':
-            ERROR = strtod(argv[i]+2,&eptr);
-            if (*eptr != '\0' || argv[i][2] == '\0')
-              { fprintf(stderr,"%s: -e argument is not a real number\n",Prog_Name);
-                exit (1);
-              }
+            ARG_REAL(ERROR)
             if (ERROR < 0. || ERROR > .5)
               { fprintf(stderr,"%s: Error rate must be in [0,.5] (%g)\n",Prog_Name,ERROR);
                 exit (1);

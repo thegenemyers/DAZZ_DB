@@ -1,40 +1,48 @@
 CFLAGS = -O4 -Wall -Wextra
 
-all: fasta2DB DB2fasta DBsplit DBdust Catrack DBshow DBstats DBrm simulator
+ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator
 
-fasta2DB: fasta2DB.c DB.c DB.h
-	gcc $(CFLAGS) -o fasta2DB fasta2DB.c DB.c -lm
+all: $(ALL)
 
-DB2fasta: DB2fasta.c DB.c DB.h
-	gcc $(CFLAGS) -o DB2fasta DB2fasta.c DB.c -lm
+fasta2DB: fasta2DB.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o fasta2DB fasta2DB.c DB.c QV.c -lm
 
-DBsplit: DBsplit.c DB.c DB.h
-	gcc $(CFLAGS) -o DBsplit DBsplit.c DB.c -lm
+DB2fasta: DB2fasta.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DB2fasta DB2fasta.c DB.c QV.c -lm
 
-DBdust: DBdust.c DB.c DB.h
-	gcc $(CFLAGS) -o DBdust DBdust.c DB.c -lm
+quiva2DB: quiva2DB.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o quiva2DB quiva2DB.c DB.c QV.c -lm
 
-Catrack: Catrack.c DB.c DB.h
-	gcc $(CFLAGS) -o Catrack Catrack.c DB.c -lm
+DB2quiva: DB2quiva.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DB2quiva DB2quiva.c DB.c QV.c -lm
 
-DBshow: DBshow.c DB.c DB.h
-	gcc $(CFLAGS) -o DBshow DBshow.c DB.c -lm
+DBsplit: DBsplit.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBsplit DBsplit.c DB.c QV.c -lm
 
-DBstats: DBstats.c DB.c DB.h
-	gcc $(CFLAGS) -o DBstats DBstats.c DB.c -lm
+DBdust: DBdust.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBdust DBdust.c DB.c QV.c -lm
 
-DBrm: DBrm.c DB.c DB.h
-	gcc $(CFLAGS) -o DBrm DBrm.c DB.c -lm
+Catrack: Catrack.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o Catrack Catrack.c DB.c QV.c -lm
 
-simulator: simulator.c DB.c DB.h
-	gcc $(CFLAGS) -o simulator simulator.c DB.c -lm
+DBshow: DBshow.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBshow DBshow.c DB.c QV.c -lm
+
+DBstats: DBstats.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBstats DBstats.c DB.c QV.c -lm
+
+DBrm: DBrm.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBrm DBrm.c DB.c QV.c -lm
+
+simulator: simulator.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o simulator simulator.c DB.c QV.c -lm
 
 clean:
-	rm -f fasta2DB DB2fasta DBsplit DBdust Catrack DBshow DBstats DBrm simulator
+	rm -f $(ALL)
 	rm -f dazz.db.tar.gz
 
 install:
-	cp fasta2DB DB2fasta DBsplit DBdust Catrack DBshow DBstats DBrm simulator ~/bin
+	cp $(ALL) ~/bin
 
 package:
 	make clean

@@ -7,6 +7,8 @@
  *  Mod   :  With DB overhaul, made this a routine strictly for printing a selected subset
  *             and created DB2fasta for recreating all the fasta files of a DB
  *  Date  :  April 2014
+ *  Mod   :  Added options to display QV streams
+ *  Date  :  July 2014
  *
  ********************************************************************************************/
 
@@ -16,13 +18,14 @@
 
 #include "DB.h"
 
-static char *Usage = "[-udU] [-w<int(80)>] <path:db> [ <reads:range> ... ]";
+static char *Usage = "[-udqUQ] [-w<int(80)>] <path:db> [ <reads:range> ... ]";
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   HITS_TRACK *dust;
   int         reps, *pts;
   int         DUST, TRIM, UPPER;
+  int         QVTOO, QVNUR;
   int         WIDTH;
 
   //  Process arguments
@@ -40,7 +43,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("udU")
+            ARG_FLAGS("udqUQ")
             break;
           case 'w':
             ARG_NON_NEGATIVE(WIDTH,"Line width")
@@ -53,6 +56,10 @@ int main(int argc, char *argv[])
     DUST  = flags['d'];
     TRIM  = 1-flags['u'];
     UPPER = 1+flags['U'];
+    QVTOO = flags['q'];
+    QVNUR = flags['Q'];
+    if (QVNUR)
+      QVTOO = 0;
 
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -60,10 +67,13 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Open DB, Dust track if requested, and then trim unless -u set
+  //  Open DB, QVs if requested, Dust track if requested, and then trim unless -u set
 
   if (Open_DB(argv[1],db))
     exit (1);
+
+  if (QVTOO || QVNUR)
+    Load_QVs(db);
 
   if (DUST)
     { dust = Load_Track(db,"dust");
@@ -138,15 +148,18 @@ int main(int argc, char *argv[])
       pts[reps++] = db->nreads;
     }
 
-  //  Display each read in the active DB according to the range pairs in pts[0..reps)
+  //  Display each read (and/or QV streams) in the active DB according to the
+  //    range pairs in pts[0..reps)
 
   { HITS_READ  *reads;
     int        *anno, *data;
-    char       *read;
+    char       *read, **entry;
     int         c, b, e, i;
     int         hilight;
 
-    read = New_Read_Buffer(db);
+    read  = New_Read_Buffer(db);
+    if (QVNUR || QVTOO)
+      entry = New_QV_Buffer(db);
 
     if (dust != NULL)
       { anno = (int *) dust->anno;
@@ -162,7 +175,7 @@ int main(int argc, char *argv[])
       { b = pts[c]-1;
         e = pts[c+1];
         for (i = b; i < e; i++)
-          { int        j, len;
+          { int        j, k, len;
             int        flags, qv;
             HITS_READ *r;
 
@@ -171,12 +184,21 @@ int main(int argc, char *argv[])
 
             flags = r->flags;
             qv    = (flags & DB_QV);
-            printf(">Prolog/%d/%d_%d",r->origin,r->beg,r->end);
+            if (QVNUR)
+              printf("@Prolog/%d/%d_%d",r->origin,r->beg,r->end);
+            else
+              printf(">Prolog/%d/%d_%d",r->origin,r->beg,r->end);
             if (qv > 0)
               printf(" RQ=0.%3d",qv);
             printf("\n");
 
-            Load_Read(db,i,read,UPPER);
+            if (QVNUR)
+              Load_QVentry(db,i,entry,UPPER);
+            else
+              { Load_Read(db,i,read,UPPER);
+                if (QVTOO)
+                  Load_QVentry(db,i,entry,UPPER);
+              }
 
             if (dust != NULL)
               { int  s, f, b, e, m;
@@ -197,10 +219,31 @@ int main(int argc, char *argv[])
                   }
               }
 
-            for (j = 0; j+WIDTH < len; j += WIDTH)
-              printf("%.*s\n",WIDTH,read+j);
-            if (j < len)
-              printf("%s\n",read+j);
+            if (QVNUR)
+              { for (k = 0; k < 5; k++)
+                  printf("%s\n",entry[k]);
+              }
+            else if (QVTOO)
+              { printf("\n");
+                for (j = 0; j+WIDTH < len; j += WIDTH)
+                  { printf("%.*s\n",WIDTH,read+j);
+                    for (k = 0; k < 5; k++)
+                      printf("%.*s\n",WIDTH,entry[k]+j);
+                    printf("\n");
+                  }
+                if (j < len)
+                  { printf("%s\n",read+j);
+                    for (k = 0; k < 5; k++)
+                      printf("%.*s\n",len-j,entry[k]+j);
+                    printf("\n");
+                  }
+              }
+            else
+              { for (j = 0; j+WIDTH < len; j += WIDTH)
+                  printf("%.*s\n",WIDTH,read+j);
+                if (j < len)
+                  printf("%s\n",read+j);
+              }
           }
       }
   }

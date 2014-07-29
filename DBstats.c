@@ -113,9 +113,9 @@ int main(int argc, char *argv[])
 
       if (CUTOFF == 0 && ALL)
         { printf("\nStatistics over all reads in the data set\n\n");
-          Print_Number((int64) nreads,15);
+          Print_Number((int64) nreads,15,stdout);
           printf(" reads\n");
-          Print_Number(totlen,15);
+          Print_Number(totlen,15,stdout);
           printf(" base pairs\n");
         }
       else
@@ -125,25 +125,25 @@ int main(int argc, char *argv[])
             printf("\nStatistics for all wells");
           if (CUTOFF > 0)
             { printf(" of length ");
-              Print_Number(CUTOFF,0);
+              Print_Number(CUTOFF,0,stdout);
               printf(" bases or more\n\n");
             }
           else
             printf(" in the data set\n\n");
-          Print_Number((int64) nreads,15);
+          Print_Number((int64) nreads,15,stdout);
           printf(" reads       out of ");
-          Print_Number((int64 ) db.nreads,15);
+          Print_Number((int64 ) db.nreads,15,stdout);
           printf("   %5.1f%% loss\n",100.-(100.*nreads)/db.nreads);
-          Print_Number(totlen,15);
+          Print_Number(totlen,15,stdout);
           printf(" base pairs  out of ");
-          Print_Number(db.totlen,15);
+          Print_Number(db.totlen,15,stdout);
           printf("   %5.1f%% loss\n",100.-(100.*totlen)/db.totlen);
         }
       printf("\nBase composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n\n",
              db.freq[0],db.freq[1],db.freq[2],db.freq[3]);
-      Print_Number(ave,15);
+      Print_Number(ave,15,stdout);
       printf(" average read length\n");
-      Print_Number(dev,15);
+      Print_Number(dev,15,stdout);
       printf(" standard deviation\n");
     }
 
@@ -151,16 +151,16 @@ int main(int argc, char *argv[])
       int   cum;
 
       printf("\nDistribution of Read Lengths (Bin size = ");
-      Print_Number((int64) BIN,0);
+      Print_Number((int64) BIN,0,stdout);
       printf(")\n\n    Bin:      Count  %% Reads  %% Bases   Average\n");
       cum  = 0;
       btot = 0;
       for (i = nbin-1; i >= 0; i--)
         { cum  += hist[i];
           btot += bsum[i];
-          Print_Number((int64) (i*BIN),7);
+          Print_Number((int64) (i*BIN),7,stdout);
           printf(":");
-          Print_Number((int64) hist[i],11);
+          Print_Number((int64) hist[i],11,stdout);
           printf("    %5.1f    %5.1f    %5lld\n",(100.*cum)/nreads,(100.*btot)/totlen,btot/cum);
           if (cum == nreads) break;
         }
@@ -195,9 +195,9 @@ int main(int argc, char *argv[])
                   }
               }
           }
-        Print_Number(numint,0);
+        Print_Number(numint,0,stdout);
         printf(" low-complexity intervals totaling ");
-        Print_Number(totlen,0);
+        Print_Number(totlen,0,stdout);
         printf(" bases\n\n");
       }
     Close_Track(&db,"dust");

@@ -13,13 +13,13 @@
 
 #include "DB.h"
 
-static char *Usage = "[-U] [-w<int(80)>] <path:db>";
+static char *Usage = "[-vU] [-w<int(80)>] <path:db>";
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   FILE       *dbfile;
   int         nfiles;
-  int         UPPER, WIDTH;
+  int         VERBOSE, UPPER, WIDTH;
 
   //  Process arguments
 
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("U")
+            ARG_FLAGS("vU")
             break;
           case 'w':
             ARG_NON_NEGATIVE(WIDTH,"Line width")
@@ -46,7 +46,8 @@ int main(int argc, char *argv[])
         argv[j++] = argv[i];
     argc = j;
 
-    UPPER = 1 + flags['U'];
+    UPPER   = 1 + flags['U'];
+    VERBOSE = flags['v'];
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -100,6 +101,11 @@ int main(int argc, char *argv[])
 
         if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
           exit (1);
+
+        if (VERBOSE)
+          { fprintf(stderr,"Creating %s.fasta ...\n",fname);
+            fflush(stdout);
+          }
 
         //   For the relevant range of reads, write each to the file
         //     recreating the original headers with the index meta-data about each read
