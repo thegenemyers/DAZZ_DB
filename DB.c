@@ -410,6 +410,8 @@ int Open_DB(char* path, HITS_DB *db)
       fseeko(index,sizeof(HITS_READ)*ofirst,SEEK_CUR);
       fread(reads,sizeof(HITS_READ),nreads,index);
 
+      totlen = 0;
+      maxlen = 0;
       for (i = 0; i < nreads; i++)
         { r = reads[i].end - reads[i].beg;
           totlen += r;
