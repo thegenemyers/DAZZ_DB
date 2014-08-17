@@ -197,11 +197,15 @@ int main(int argc, char *argv[])
     read  = New_Read_Buffer(db);
     if (QVNUR || QVTOO)
       entry = New_QV_Buffer(db);
+    else
+      entry = NULL;
 
     if (dust != NULL)
       { anno = (int *) dust->anno;
         data = (int *) dust->data;
       }
+    else
+      anno = data = NULL;
 
     hilight = 'a'-'A';
     if (UPPER == 1)
@@ -238,19 +242,19 @@ int main(int argc, char *argv[])
               }
 
             if (dust != NULL)
-              { int  s, f, b, e, m;
+              { int  s, f, bd, ed, m;
 
                 s = (anno[i] >> 2);
                 f = (anno[i+1] >> 2);
                 if (s < f)
                   { for (j = s; j < f; j += 2)
-                      { b = data[j];
-                        e = data[j+1];
-                        for (m = b; m <= e; m++)
-                          read[m] += hilight;
+                      { bd = data[j];
+                        ed = data[j+1];
+                        for (m = bd; m <= ed; m++)
+                          read[m] = (char) (read[m] + hilight);
                         if (j == s)
                           printf("> ");
-                        printf(" [%d,%d]",b,e);
+                        printf(" [%d,%d]",bd,ed);
                       }
                     printf("\n");
                   }

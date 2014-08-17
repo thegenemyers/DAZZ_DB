@@ -56,7 +56,7 @@
 
 static char *Usage = "<path:db> ... ";
 
-void HANDLER(char *path, char *name)
+static void HANDLER(char *path, char *name)
 { (void) name;
   unlink(path);
 }

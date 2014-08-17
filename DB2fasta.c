@@ -116,7 +116,8 @@ int main(int argc, char *argv[])
 
   //  nfiles = # of files in data base
 
-  fscanf(dbfile,DB_NFILE,&nfiles);
+  if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
+    SYSTEM_ERROR
 
   //  For each file do:
 
@@ -134,7 +135,8 @@ int main(int argc, char *argv[])
 
         //  Scan db image file line, create .fasta file for writing
 
-        fscanf(dbfile,DB_FDATA,&last,fname,prolog);
+        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 1)
+          SYSTEM_ERROR
 
         if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
           exit (1);

@@ -120,12 +120,14 @@ int main(int argc, char *argv[])
     indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
     if (indx == NULL)
       exit (1);
-    fread(&db,sizeof(HITS_DB),1,indx);
+    if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
+      SYSTEM_ERROR
 
     reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.oreads,"Allocating DB index");
     if (reads == NULL)
       exit (1);
-    fread(reads,sizeof(HITS_READ),db.oreads,indx);
+    if (fread(reads,sizeof(HITS_READ),db.oreads,indx) != (size_t) (db.oreads))
+      SYSTEM_ERROR
 
     { int   first, last;
       char  prolog[MAX_NAME], fname[MAX_NAME];
@@ -134,10 +136,12 @@ int main(int argc, char *argv[])
       c    = 2;
       core = Root(argv[c],".quiva");
 
-      fscanf(istub,DB_NFILE,&nfiles);
+      if (fscanf(istub,DB_NFILE,&nfiles) != 1)
+        SYSTEM_ERROR
       first = 0;
       for (i = 0; i < nfiles; i++)
-        { fscanf(istub,DB_FDATA,&last,fname,prolog);
+        { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+            SYSTEM_ERROR
           if (strcmp(core,fname) == 0)
             break;
           first = last;
@@ -163,7 +167,8 @@ int main(int argc, char *argv[])
             { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
               exit (1);
             }
-          fscanf(istub,DB_FDATA,&last,fname,prolog);
+          if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+            SYSTEM_ERROR
           if (strcmp(core,fname) != 0)
             { fprintf(stderr,"%s: Files not being added in order (expect %s, given %s)",
                              Prog_Name,fname,core);
@@ -180,6 +185,8 @@ int main(int argc, char *argv[])
 
       fseeko(quiva,0,SEEK_END);
       coff = ftello(quiva);
+
+      free(core);
     }
 
     free(root);
@@ -199,9 +206,13 @@ int main(int argc, char *argv[])
     //  For each .quiva file do:
 
     rewind(istub);
-    fscanf(istub,"files = %*d\n");
+    if (fscanf(istub,"files = %*d\n") != 0)
+      SYSTEM_ERROR
+
+    last = 0;
     for (i = 0; i < ofile; i++)
-      fscanf(istub,"  %9d %*s %*s\n",&last);
+      if (fscanf(istub,"  %9d %*s %*s\n",&last) != 1)
+        SYSTEM_ERROR
 
     cur = last;
     for (c = 2; c < argc; c++)
@@ -243,7 +254,8 @@ int main(int argc, char *argv[])
             qpos = ftello(quiva);
           }
 
-        fscanf(istub,"  %9d %*s %*s\n",&last);
+        if (fscanf(istub,"  %9d %*s %*s\n",&last) != 1)
+          SYSTEM_ERROR
         if (last != cur)
           { fprintf(stderr,"%s: Number of reads in %s.quiva doesn't match number in %s.fasta\n",
                            Prog_Name,root,root);
@@ -273,7 +285,8 @@ int main(int argc, char *argv[])
 error:
   if (coff != 0)
     { fseeko(quiva,0,SEEK_SET);
-      ftruncate(fileno(quiva),coff);
+      if (ftruncate(fileno(quiva),coff) < 0)
+        SYSTEM_ERROR
     }
   fclose(istub);
   fclose(indx);

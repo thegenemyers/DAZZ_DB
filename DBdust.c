@@ -167,7 +167,8 @@ int main(int argc, char *argv[])
       { dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"r+");
         if (dfile == NULL)
           exit (1);
-        fread(&nreads,sizeof(int),1,afile);
+        if (fread(&nreads,sizeof(int),1,afile) != 1)
+          SYSTEM_ERROR
         if (nreads >= db->nreads)
           { fclose(afile);
             fclose(dfile);
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
         c = (read[0] << 2) | read[1];     //   Convert to triple codes
         for (j = 2; j < len; j++)
           { c = ((c << 2) & 0x3f) | read[j];
-            lag2[j] = c;
+            lag2[j] = (char) c;
           }
         len -= 2;
 

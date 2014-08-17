@@ -143,8 +143,10 @@ int main(int argc, char *argv[])
             fflush(stderr);
           }
   
-        fread(&tracklen,sizeof(int),1,afile);
-        fread(&size,sizeof(int),1,afile);
+        if (fread(&tracklen,sizeof(int),1,afile) != 1)
+          SYSTEM_ERROR
+        if (fread(&size,sizeof(int),1,afile) != 1)
+          SYSTEM_ERROR
         if (nfiles == 0)
           { tracksiz = size;
             if (dfile != NULL)
@@ -193,39 +195,46 @@ int main(int argc, char *argv[])
               { int anno4;
   
                 for (i = 0; i < tracklen; i++)
-                  { fread(&anno4,sizeof(int),1,afile);
+                  { if (fread(&anno4,sizeof(int),1,afile) != 1)
+                      SYSTEM_ERROR
                     anno4 += trackoff;
                     fwrite(&anno4,sizeof(int),1,aout);
                   }
-                fread(&anno4,sizeof(int),1,afile);
+                if (fread(&anno4,sizeof(int),1,afile) != 1)
+                  SYSTEM_ERROR
                 dlen = anno4;
               }
             else
               { int64 anno8;
   
                 for (i = 0; i < tracklen; i++)
-                  { fread(&anno8,sizeof(int64),1,afile);
+                  { if (fread(&anno8,sizeof(int64),1,afile) != 1)
+                      SYSTEM_ERROR
                     anno8 += trackoff;
                     fwrite(&anno8,sizeof(int64),1,aout);
                   }
-                fread(&anno8,sizeof(int64),1,afile);
+                if (fread(&anno8,sizeof(int64),1,afile) != 1)
+                  SYSTEM_ERROR
                 dlen = anno8;
               }
             trackoff += dlen;
 
             for (i = 1024; i < dlen; i += 1024)
-              { fread(data,1024,1,dfile);
+              { if (fread(data,1024,1,dfile) != 1)
+                  SYSTEM_ERROR
                 fwrite(data,1024,1,dout);
               }
             i -= 1024;
             if (i < dlen)
-              { fread(data,dlen-i,1,dfile);
+              { if (fread(data,dlen-i,1,dfile) != 1)
+                  SYSTEM_ERROR
                 fwrite(data,dlen-i,1,dout);
               }
           }
         else
           { for (i = 0; i < tracklen; i++)
-              { fread(anno,size,1,afile);
+              { if (fread(anno,size,1,afile) != 1)
+                  SYSTEM_ERROR
                 fwrite(anno,size,1,aout);
               }
           }

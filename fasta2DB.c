@@ -175,14 +175,16 @@ int main(int argc, char *argv[])
         ioff    = 0;
       }
     else
-      { fscanf(istub,DB_NFILE,&ofiles);
+      { if (fscanf(istub,DB_NFILE,&ofiles) != 1)
+          SYSTEM_ERROR
 
         bases = Fopen(Catenate(pwd,PATHSEP,root,".bps"),"r+");
         indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
         if (bases == NULL || indx == NULL)
           exit (1);
 
-        fread(&db,sizeof(HITS_DB),1,indx);
+        if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
+          SYSTEM_ERROR
         fseeko(bases,0,SEEK_END);
         fseeko(indx, 0,SEEK_END);
 
@@ -202,7 +204,8 @@ int main(int argc, char *argv[])
       { int  last;
         char prolog[MAX_NAME], fname[MAX_NAME];
 
-        fscanf(istub,DB_FDATA,&last,fname,prolog);
+        if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+          SYSTEM_ERROR
         if ((flist[i] = Strdup(fname,"Adding to file list")) == NULL)
           goto error;
         fprintf(ostub,DB_FDATA,last,fname,prolog);
@@ -354,7 +357,7 @@ int main(int argc, char *argv[])
                     break;
                   rlen += x;
                   if (rlen + MAX_NAME > rmax)
-                    { rmax = 1.2 * rmax + 1000 + MAX_NAME;
+                    { rmax = ((int) (1.2 * rmax)) + 1000 + MAX_NAME;
                       read = (char *) realloc(read,rmax+1);
                       if (read == NULL)
                         { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
@@ -368,7 +371,7 @@ int main(int argc, char *argv[])
               for (i = 0; i < rlen; i++)
                 { x = number[(int) read[i]];
                   count[x] += 1;
-                  read[i]   = x;
+                  read[i]   = (char) x;
                 }
               oreads += 1;
               totlen += rlen;
@@ -376,8 +379,8 @@ int main(int argc, char *argv[])
                 maxlen = rlen;
 
               prec[pcnt].origin = well;
-              prec[pcnt].beg    = beg;
-              prec[pcnt].end    = end;
+              prec[pcnt].beg    = (READIDX) beg;
+              prec[pcnt].end    = (READIDX) end;
               prec[pcnt].boff   = offset;
               prec[pcnt].coff   = 0;
               prec[pcnt].flags  = qv;
@@ -391,7 +394,7 @@ int main(int argc, char *argv[])
                 { prec[pcnt].flags |= DB_CSS;
                   pcnt += 1;
                   if (pcnt >= pmax)
-                    { pmax = pcnt*1.2 + 100;
+                    { pmax = ((int) (pcnt*1.2)) + 100;
                       prec = (HITS_READ *) realloc(prec,sizeof(HITS_READ)*pmax);
                       if (prec == NULL)
                         { fprintf(stderr,"File %s.fasta, Line %d: Out of memory",core,nline);
@@ -437,14 +440,14 @@ int main(int argc, char *argv[])
     db.oreads = oreads;
     if (istub == NULL)
       { for (c = 0; c < 4; c++)
-          db.freq[c] = (1.*count[c])/totlen;
+          db.freq[c] = (float) ((1.*count[c])/totlen);
         db.totlen = totlen;
         db.maxlen = maxlen;
         db.cutoff = -1;
       }
     else
       { for (c = 0; c < 4; c++)
-          db.freq[c] = (db.freq[c]*db.totlen + (1.*count[c]))/(db.totlen + totlen);
+          db.freq[c] = (float) ((db.freq[c]*db.totlen + (1.*count[c]))/(db.totlen + totlen));
         db.totlen += totlen;
         if (maxlen > db.maxlen)
           db.maxlen = maxlen;
@@ -471,10 +474,12 @@ int main(int argc, char *argv[])
       //    Copy the old image block information to the new block information (except for
       //    the indices of the last partial block)
 
-      fscanf(istub,DB_NBLOCK,&nblock); 
+      if (fscanf(istub,DB_NBLOCK,&nblock) != 1)
+        SYSTEM_ERROR
       dbpos = ftello(ostub);
       fprintf(ostub,DB_NBLOCK,0);
-      fscanf(istub,DB_PARAMS,&size,&cutoff,&allflag); 
+      if (fscanf(istub,DB_PARAMS,&size,&cutoff,&allflag) != 3)
+        SYSTEM_ERROR
       fprintf(ostub,DB_PARAMS,size,cutoff,allflag); 
       if (allflag)
         allflag = 0;
@@ -484,7 +489,8 @@ int main(int argc, char *argv[])
 
       nblock -= 1;
       for (i = 0; i <= nblock; i++)
-        { fscanf(istub,DB_BDATA,&ofirst,&bfirst);
+        { if (fscanf(istub,DB_BDATA,&ofirst,&bfirst) != 2)
+            SYSTEM_ERROR
           fprintf(ostub,DB_BDATA,ofirst,bfirst);
         }
 
@@ -496,7 +502,8 @@ int main(int argc, char *argv[])
       totlen = 0;
       ireads = 0;
       for (i = ofirst; i < oreads; i++)
-        { fread(&record,sizeof(HITS_READ),1,indx);
+        { if (fread(&record,sizeof(HITS_READ),1,indx) != 1)
+            SYSTEM_ERROR
           rlen = record.end - record.beg;
           if (rlen >= cutoff && (record.flags & DB_BEST) >= allflag)
             { ireads += 1;
@@ -543,11 +550,13 @@ int main(int argc, char *argv[])
 error:
   if (ioff != 0)
     { fseeko(indx,0,SEEK_SET);
-      ftruncate(fileno(indx),ioff);
+      if (ftruncate(fileno(indx),ioff) < 0)
+        SYSTEM_ERROR
     }
   if (boff != 0)
     { fseeko(bases,0,SEEK_SET);
-      ftruncate(fileno(bases),boff);
+      if (ftruncate(fileno(bases),boff) < 0)
+        SYSTEM_ERROR
     }
   fclose(indx);
   fclose(bases);

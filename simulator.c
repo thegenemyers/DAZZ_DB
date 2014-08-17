@@ -137,8 +137,8 @@ static void complement(int elen, char *s)
   t = s + (elen-1);
   while (s <= t)
     { c = *s;
-      *s = 3-*t;
-      *t = 3-c;
+      *s = (char) (3-*t);
+      *t = (char) (3-c);
       s += 1;
       t -= 1;
     }
@@ -257,7 +257,7 @@ static void shotgun(char *source)
 
   init_unorm();
 
-  qv = 1000 * (1.-ERROR);
+  qv = (int) (1000 * (1.-ERROR));
 
   rbuffer = NULL;
   maxlen  = 0;
@@ -269,12 +269,12 @@ static void shotgun(char *source)
       int   j;
       char *s, *t;
 
-      len = exp(nmean + nsdev*sample_unorm(drand48()));    //  Determine length of read.
+      len = (int) exp(nmean + nsdev*sample_unorm(drand48()));    //  Determine length of read.
       if (len > GENOME) len = GENOME;
       if (len < RSHORT)
         continue;
 
-      sdl = len*ERROR;              //  Determine number of inserts *ins*, deletions *del,
+      sdl = (int) (len*ERROR);      //  Determine number of inserts *ins*, deletions *del,
       ins = del = 0;                //    and substitions+deletions *sdl*.
       for (j = 0; j < sdl; j++)
         { double x = drand48();
@@ -289,7 +289,7 @@ static void shotgun(char *source)
       rend = rbeg + len;
 
       if (elen > maxlen)
-        { maxlen  = 1.2*elen + 1000;
+        { maxlen  = ((int) (1.2*elen)) + 1000;
           rbuffer = (char *) Realloc(rbuffer,maxlen+3,"Allocating read buffer");
           if (rbuffer == NULL)
             exit (1);
@@ -302,7 +302,7 @@ static void shotgun(char *source)
       //     characters, while deletions and substitutions occur on source characters.
 
       while ((len+1) * drand48() < ins)
-        { *t++ = 4.*drand48();
+        { *t++ = (char) (4.*drand48());
           ins -= 1;
         }
       for ( ; len > 0; len--)
@@ -311,8 +311,8 @@ static void shotgun(char *source)
           else if (sdl * drand48() >= del)
             { double x = 3.*drand48();
               if (x >= *s)
-                x += 1;
-              *t++ = x;
+                x += 1.;
+              *t++ = (char) x;
               sdl -= 1;
             }
           else
@@ -321,7 +321,7 @@ static void shotgun(char *source)
             }
           s += 1;
           while (len * drand48() < ins)
-            { *t++ = 4.*drand48();
+            { *t++ = (char) (4.*drand48());
               ins -= 1;
             }
         }
@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
       { fprintf(stderr,"%s: Genome length must be positive (%g)\n",Prog_Name,glen);
         exit (1);
       }
-    GENOME = glen*1000000;
+    GENOME = (int) (glen*1000000.);
   }
 
   source = random_genome();

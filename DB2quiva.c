@@ -118,7 +118,8 @@ int main(int argc, char *argv[])
     QVcoding   *coding;
     char      **entry;
 
-    fscanf(dbfile,DB_NFILE,&nfiles);
+    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
+      SYSTEM_ERROR
 
     entry = New_QV_Buffer(db);
     reads = db->reads;
@@ -132,7 +133,8 @@ int main(int argc, char *argv[])
 
         if (reads[first].coff == 0) break;
 
-        fscanf(dbfile,DB_FDATA,&last,fname,prolog);
+        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
+          SYSTEM_ERROR
 
         if ((ofile = Fopen(Catenate(".","/",fname,".quiva"),"w")) == NULL)
           exit (1);

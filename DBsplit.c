@@ -136,18 +136,22 @@ int main(int argc, char *argv[])
     free(pwd);
     free(root);
 
-    fscanf(dbfile,DB_NFILE,&nfiles);
+    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
+      SYSTEM_ERROR
     for (i = 0; i < nfiles; i++)
-      fgets(buffer,2*MAX_NAME+100,dbfile);
+      if (fgets(buffer,2*MAX_NAME+100,dbfile) == NULL)
+        SYSTEM_ERROR
 
-    fread(&dbs,sizeof(HITS_DB),1,ixfile);
+    if (fread(&dbs,sizeof(HITS_DB),1,ixfile) != 1)
+      SYSTEM_ERROR
 
     if (dbs.cutoff >= 0)
       { printf("You are about to overwrite the current partition settings.  This\n");
         printf("will invalidate any tracks, overlaps, and other derivative files.\n");
         printf("Are you sure you want to proceed? [Y/N] ");
         fflush(stdout);
-        fgets(buffer,100,stdin);
+        if (fgets(buffer,100,stdin) == NULL)
+          SYSTEM_ERROR
         if (index(buffer,'n') != NULL || index(buffer,'N') != NULL)
           { printf("Aborted\n");
             fflush(stdout);
@@ -165,7 +169,7 @@ int main(int argc, char *argv[])
   { HITS_READ *reads  = db.reads;
     int        nreads = db.oreads;
     int64      size, totlen;
-    int        nblock, ireads, breads, rlen;
+    int        nblock, ireads, breads, rlen, fno;
     int        i;
 
     size = SIZE*1000000ll;
@@ -210,7 +214,9 @@ int main(int argc, char *argv[])
       { fprintf(dbfile,DB_BDATA,nreads,breads);
         nblock += 1;
       }
-    ftruncate(fileno(dbfile),ftello(dbfile));
+    fno = fileno(dbfile);
+    if (ftruncate(fno,ftello(dbfile)) < 0)
+      SYSTEM_ERROR
 
     fseeko(dbfile,dbpos,SEEK_SET);
     fprintf(dbfile,DB_NBLOCK,nblock);

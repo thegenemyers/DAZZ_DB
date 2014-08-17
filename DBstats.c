@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
           if (rlen >= CUTOFF)
             dev += (rlen-ave)*(rlen-ave);
         }
-      dev = sqrt(dev/nreads);
+      dev = (int64) sqrt((1.*dev)/nreads);
 
       if (CUTOFF == 0 && ALL)
         { printf("\nStatistics over all reads in the data set\n\n");
@@ -203,6 +203,9 @@ int main(int argc, char *argv[])
         }
       printf("\n");
     }
+
+    free(hist);
+    free(bsum);
   }
 
   { HITS_TRACK *dust;
@@ -214,7 +217,7 @@ int main(int argc, char *argv[])
         dust = Load_Track(&db,Numbered_Suffix("",db.part,".dust")); 
       }
     if (dust != NULL)
-      { void *data = dust->data;
+      { char *data = dust->data;
         int  *anno = (int *) dust->anno;
         int   i, rlen;
         int  *idata, *edata;
