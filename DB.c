@@ -855,10 +855,10 @@ HITS_TRACK *Load_Track(HITS_DB *db, char *track)
     if (strcmp(record->name,track) == 0)
       return (record);
 
-  afile = Fopen(Catenate(db->path,".",track,".anno"),"r");
+  afile = fopen(Catenate(db->path,".",track,".anno"),"r");
   if (afile == NULL)
     return (NULL);
-  dfile = Fopen(Catenate(db->path,".",track,".data"),"r");
+  dfile = fopen(Catenate(db->path,".",track,".data"),"r");
 
   if (fread(&tracklen,sizeof(int),1,afile) != 1)
     SYSTEM_ERROR
@@ -886,9 +886,17 @@ HITS_TRACK *Load_Track(HITS_DB *db, char *track)
   anno = (void *) Malloc(size*(nreads+1),"Allocating Track Anno Vector");
 
   if (size > 0)
-    { if (fread(anno,size,nreads+1,afile) != (size_t) (nreads+1))
-        SYSTEM_ERROR
+    { if (dfile == NULL)
+        { if (fread(anno,size,nreads,afile) != (size_t) nreads)
+            SYSTEM_ERROR
+        }
+      else
+        { if (fread(anno,size,nreads+1,afile) != (size_t) (nreads+1))
+            SYSTEM_ERROR
+        }
     }
+  else
+    SYSTEM_ERROR
 
   if (dfile != NULL)
     { int64 *anno8, off8, dlen;
