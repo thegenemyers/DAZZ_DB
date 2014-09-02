@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
         //  Scan db image file line, create .fasta file for writing
 
-        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 1)
+        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
           SYSTEM_ERROR
 
         if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
