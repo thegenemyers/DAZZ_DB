@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
               prec[pcnt].beg    = (READIDX) beg;
               prec[pcnt].end    = (READIDX) end;
               prec[pcnt].boff   = offset;
-              prec[pcnt].coff   = 0;
+              prec[pcnt].coff   = -1;
               prec[pcnt].flags  = qv;
 
               Compress_Read(rlen,read);

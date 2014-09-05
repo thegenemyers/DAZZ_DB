@@ -647,7 +647,7 @@ void Load_QVs(HITS_DB *db)
       exit (1);
     }
 
-  if (db->reads[db->nreads-1].coff == 0)
+  if (db->reads[db->nreads-1].coff < 0)
     { fprintf(stderr,"%s: The requested QVs have not been added to the DB!\n",Prog_Name);
       exit (1);
     }

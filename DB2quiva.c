@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
 
         //  Scan db image file line, create .quiva file for writing
 
-        if (reads[first].coff == 0) break;
+        if (reads[first].coff < 0) break;
 
         if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
           SYSTEM_ERROR
