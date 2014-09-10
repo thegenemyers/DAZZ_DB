@@ -368,6 +368,11 @@ int main(int argc, char *argv[])
                 }
               read[rlen] = '\0';
 
+              if (beg > 1<<16 || end > 1<<16)
+                { fprintf(stderr,"Read too long. Skipping: %d/%d_%d\n",well,beg,end);
+                  continue;
+                }
+
               for (i = 0; i < rlen; i++)
                 { x = number[(int) read[i]];
                   count[x] += 1;
