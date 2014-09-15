@@ -1,0 +1,14 @@
+# Ignore executables
+Catrack
+DB2fasta
+DB2idmap
+DB2quiva
+DBdust
+DBrm
+DBshow
+DBsplit
+DBstats
+fasta2DB
+quiva2DB
+simulator
+
