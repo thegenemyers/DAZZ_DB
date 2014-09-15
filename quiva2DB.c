@@ -152,11 +152,11 @@ int main(int argc, char *argv[])
         }
 
       ofile  = i;
-      if (first > 0 && reads[first-1].coff == 0)
+      if (first > 0 && reads[first-1].coff < 0)
         { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",Prog_Name,core);
           exit (1);
         }
-      if (reads[first].coff != 0)
+      if (reads[first].coff >= 0)
         { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
           exit (1);
         }
