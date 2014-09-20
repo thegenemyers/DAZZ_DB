@@ -245,6 +245,15 @@ int main(int argc, char *argv[])
         char *path, *core, *prolog;
         int   nline, eof, rlen, pcnt;
         int   pwell;
+        struct stat sb;
+
+        if (stat(argv[c], &sb) == -1)
+            goto error;
+
+        if (sb.st_size == 0) 
+          { fprintf(stderr, "%s: Empty file\n", argv[c]);
+            continue;
+          }
 
         //  Open it: <path>/<core>.fasta, check that core is not too long, and add it to
         //           list of added files, flist[0..ofiles), after checking that it is not
@@ -367,6 +376,11 @@ int main(int argc, char *argv[])
                     }
                 }
               read[rlen] = '\0';
+
+              if (beg > 1<<16 || end > 1<<16)
+                { fprintf(stderr,"Invalid subread offsets. Skipping: %d/%d_%d\n",well,beg,end);
+                  continue;
+                }
 
               for (i = 0; i < rlen; i++)
                 { x = number[(int) read[i]];

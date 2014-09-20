@@ -1,8 +1,11 @@
 CFLAGS = -O3 -Wall -Wextra -fno-strict-aliasing
 
-ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator
+ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator DB2idmap
 
 all: $(ALL)
+
+DB2idmap : DB2idmap.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o $@ $(filter %.c,$^) -lm
 
 fasta2DB: fasta2DB.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o fasta2DB fasta2DB.c DB.c QV.c -lm
