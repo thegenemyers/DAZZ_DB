@@ -284,6 +284,10 @@ int main(int argc, char *argv[])
         rlen  = 0;
         nline = 1;
         eof   = (fgets(read,MAX_NAME,input) == NULL);
+        if (eof || strlen(read) < 1)
+          { fprintf(stderr,"File %s.fasta is empty, skipping\n",core);
+            continue;
+          }
         if (read[strlen(read)-1] != '\n')
           { fprintf(stderr,"File %s.fasta, Line 1: Fasta line is too long (> %d chars)\n",
                            core,MAX_NAME-2);
@@ -317,7 +321,7 @@ int main(int argc, char *argv[])
 
           pwell = -1;
           while (!eof)
-            { int   beg, end, clen;
+            { int   beg, end, clen, hline;
               int   well, qv;
               char *find;
 
@@ -343,7 +347,8 @@ int main(int argc, char *argv[])
               else if (x == 3)
                 qv = 0;
 
-              rlen = 0;
+              hline = nline;
+              rlen  = 0;
               while (1)
                 { eof = (fgets(read+rlen,MAX_NAME,input) == NULL);
                   nline += 1;
@@ -367,6 +372,12 @@ int main(int argc, char *argv[])
                     }
                 }
               read[rlen] = '\0';
+
+              if (end >= 0x10000)
+                { fprintf(stderr,"File %s.fasta, Line %d:",core,hline);
+                  fprintf(stderr," Warning: Pulse positions >= 2^16, skipping read.\n");
+                  continue;
+                }
 
               for (i = 0; i < rlen; i++)
                 { x = number[(int) read[i]];
