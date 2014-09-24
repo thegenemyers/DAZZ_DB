@@ -215,6 +215,8 @@ int main(int argc, char *argv[])
     for (c = 0; c < reps; c += 2)
       { b = pts[c]-1;
         e = pts[c+1];
+        if (e > db->nreads)
+          e = db->nreads;
         for (i = b; i < e; i++)
           { int        j, k, len;
             int        flags, qv;
