@@ -373,10 +373,10 @@ int main(int argc, char *argv[])
                 }
               read[rlen] = '\0';
 
-              if (end >= 0x10000)
+              if (end-beg >= 0x10000)
                 { fprintf(stderr,"File %s.fasta, Line %d:",core,hline);
-                  fprintf(stderr," Warning: Pulse positions >= 2^16, skipping read.\n");
-                  continue;
+                  fprintf(stderr," Error: Read is longer than 2^16-1.\n");
+                  exit (1);
                 }
 
               for (i = 0; i < rlen; i++)
