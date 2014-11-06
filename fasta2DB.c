@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
       }
 
     flist  = (char **) Malloc(sizeof(char *)*(ofiles+ifiles),"Allocating file list");
-    ostub  = Fopen(Catenate(pwd,"/",root,".dbx"),"w");
+    ostub  = Fopen(Catenate(pwd,"/",root,".dbx"),"w+");
     if (ostub == NULL || flist == NULL)
       exit (1);
 
@@ -246,9 +246,8 @@ int main(int argc, char *argv[])
         int   nline, eof, rlen, pcnt;
         int   pwell;
 
-        //  Open it: <path>/<core>.fasta, check that core is not too long, and add it to
-        //           list of added files, flist[0..ofiles), after checking that it is not
-        //           already in the list.
+        //  Open it: <path>/<core>.fasta, check that core is not too long,
+        //           and checking that it is not already in flist.
 
         path  = PathTo(argv[c]);
         core  = Root(argv[c],".fasta");
@@ -268,26 +267,31 @@ int main(int argc, char *argv[])
                                Prog_Name,core,Root(argv[1],".db"));
                 goto error;
               }
-          flist[ofiles++] = core;
           free(path);
         }
 
-        if (VERBOSE)
-          { fprintf(stderr,"Adding '%s' ...\n",core);
-            fflush(stderr);
-          }
-
-        //  Get the header of the first line, check that it has PACBIO format, and record
-        //    prolog in 'prolog'.
+        //  Get the header of the first line.  If the file is empty skip.
 
         pcnt  = 0;
         rlen  = 0;
         nline = 1;
         eof   = (fgets(read,MAX_NAME,input) == NULL);
         if (eof || strlen(read) < 1)
-          { fprintf(stderr,"File %s.fasta is empty, skipping\n",core);
+          { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+            fclose(input);
             continue;
           }
+
+        //   Add the file name to flist
+
+        if (VERBOSE)
+          { fprintf(stderr,"Adding '%s' ...\n",core);
+            fflush(stderr);
+          }
+        flist[ofiles++] = core;
+
+        // Check that the first line has PACBIO format, and record prolog in 'prolog'.
+
         if (read[strlen(read)-1] != '\n')
           { fprintf(stderr,"File %s.fasta, Line 1: Fasta line is too long (> %d chars)\n",
                            core,MAX_NAME-2);
@@ -390,8 +394,8 @@ int main(int argc, char *argv[])
                 maxlen = rlen;
 
               prec[pcnt].origin = well;
-              prec[pcnt].beg    = (READIDX) beg;
-              prec[pcnt].end    = (READIDX) end;
+              prec[pcnt].beg    = beg;
+              prec[pcnt].end    = end;
               prec[pcnt].boff   = offset;
               prec[pcnt].coff   = -1;
               prec[pcnt].flags  = qv;
@@ -544,6 +548,9 @@ int main(int argc, char *argv[])
 
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);   //  Write the finalized db record into .idx
+
+  rewind(ostub);                        //  Rewrite the number of files actually added
+  fprintf(ostub,DB_NFILE,ofiles);
 
   if (istub != NULL)
     fclose(istub);

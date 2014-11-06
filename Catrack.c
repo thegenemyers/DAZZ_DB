@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
         dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),"r");
 
         if (VERBOSE)
-          { fprintf(stderr,"Concatenating %s.%d.%s ...",prefix,nfiles+1,argv[2]);
+          { fprintf(stderr,"Concatenating %s.%d.%s ...\n",prefix,nfiles+1,argv[2]);
             fflush(stderr);
           }
   
