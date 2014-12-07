@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);
-  fwrite(reads,sizeof(HITS_DB),db.oreads,indx);
+  fwrite(reads,sizeof(HITS_READ),db.oreads,indx);
 
   fclose(istub);
   fclose(indx);

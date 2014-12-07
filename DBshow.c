@@ -57,6 +57,8 @@
 
 static char *Usage = "[-udqUQ] [-w<int(80)>] <path:db> [ <reads:range> ... ]";
 
+#define LAST_READ_SYMBOL  '$'
+
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   HITS_TRACK *dust;
@@ -142,7 +144,7 @@ int main(int argc, char *argv[])
       char *eptr, *fptr;
 
       for (c = 2; c < argc; c++)
-        { if (argv[c][0] == '#')
+        { if (argv[c][0] == LAST_READ_SYMBOL)
             { b = db->nreads;
               eptr = argv[c]+1;
             }
@@ -159,7 +161,7 @@ int main(int argc, char *argv[])
                   continue;
                 }
               else if (*eptr == '-')
-                { if (eptr[1] == '#')
+                { if (eptr[1] == LAST_READ_SYMBOL)
                     { e = db->nreads;
                       fptr = eptr+2;
                     }
