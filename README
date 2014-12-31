@@ -40,11 +40,11 @@
 UPGRADE & DEVELOPER NOTES ! ! !
 
   If you have already built a big database and don't want to rebuild it, but do want
-to use a more recent version of the software that entails a change to the data structures
-(currently the updates on Sept 25, 2014 and December 30, 2014), please note the routines
-DBupgrade.Sep.25.2014 and DBupgrade.30.2014.  These take a DB, say X, as an argument, and
-produce a file .X.nid which you should then replace .X.idx with.  To update a very old
-DB to today's version you will need to run both in sequence.
+to use a more recent version of the software that entails a change to the data
+structures (currently the updates on Sept 25, 2014 and December 30, 2014), please note
+the routines DBupgrade.Sep.25.2014 and DBupgrade.30.2014.  These take a DB, say X, as an
+argument, and produce a file .X.nid which you should then replace .X.idx with.  To
+update a very old DB to today's version you will need to run both in sequence.
 
   To convert from before Dec. 30 2014 to after you will also need to recreate the "dust"
 track is you have one.
@@ -56,8 +56,8 @@ is called without an argument.
 from shorts to ints, and on December 30, the "beg" and "end" fields became "fpulse" and
 "rlen", respectively where fpulse = beg and rlen = end-beg.
 
-  Developers shouls also not carefully that the calling conventions to Open_DB have changed
-and there are new utility routines Number_Digits and Check_Track.
+  Developers shouls also not carefully that the calling conventions to Open_DB have
+changed and there are new utility routines Number_Digits and Check_Track.
 
 \************************************************************************************/
 
