@@ -377,12 +377,6 @@ int main(int argc, char *argv[])
                 }
               read[rlen] = '\0';
 
-              if (end-beg >= 0x10000)
-                { fprintf(stderr,"File %s.fasta, Line %d:",core,hline);
-                  fprintf(stderr," Error: Read is longer than 2^16-1.\n");
-                  exit (1);
-                }
-
               for (i = 0; i < rlen; i++)
                 { x = number[(int) read[i]];
                   count[x] += 1;
@@ -394,8 +388,8 @@ int main(int argc, char *argv[])
                 maxlen = rlen;
 
               prec[pcnt].origin = well;
-              prec[pcnt].beg    = beg;
-              prec[pcnt].end    = end;
+              prec[pcnt].fpulse = beg;
+              prec[pcnt].rlen   = end-beg;
               prec[pcnt].boff   = offset;
               prec[pcnt].coff   = -1;
               prec[pcnt].flags  = qv;
@@ -423,7 +417,7 @@ int main(int argc, char *argv[])
               else
                 { x = 0;
                   for (i = 1; i < pcnt; i++)
-                    if (prec[i].end - prec[i].beg > prec[x].end - prec[x].beg)
+                    if (prec[i].rlen > prec[x].rlen)
                       x = i;
                   prec[x].flags |= DB_BEST;
                   fwrite(prec,sizeof(HITS_READ),pcnt,indx);
@@ -438,7 +432,7 @@ int main(int argc, char *argv[])
 
           x = 0;
           for (i = 1; i < pcnt; i++)
-            if (prec[i].end - prec[i].beg > prec[x].end - prec[i].beg)
+            if (prec[i].rlen > prec[x].rlen)
               x = i;
           prec[x].flags |= DB_BEST;
           fwrite(prec,sizeof(HITS_READ),pcnt,indx);
@@ -519,12 +513,12 @@ int main(int argc, char *argv[])
       for (i = ofirst; i < oreads; i++)
         { if (fread(&record,sizeof(HITS_READ),1,indx) != 1)
             SYSTEM_ERROR
-          rlen = record.end - record.beg;
+          rlen = record.rlen;
           if (rlen >= cutoff && (record.flags & DB_BEST) >= allflag)
             { ireads += 1;
               bfirst += 1;
               totlen += rlen;
-              if (totlen >= size || ireads >= READMAX)
+              if (totlen >= size)
                 { fprintf(ostub," %9d %9d\n",i+1,bfirst);
                   totlen = 0;
                   ireads = 0;

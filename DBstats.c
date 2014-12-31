@@ -52,11 +52,12 @@
 
 #include "DB.h"
 
-static char *Usage = " [-a] [-x<int>] [-b<int(1000)>] <name:db>";
+static char *Usage = " [-a] [-x<int>] [-b<int(1000)>] <name:db|dam>";
 
 int main(int argc, char *argv[])
 { HITS_DB     db;
   HITS_READ  *reads;
+  int         status;
 
   int        ALL;
   int        CUTOFF;
@@ -97,7 +98,10 @@ int main(int argc, char *argv[])
       }
   }
 
-  if (Open_DB(argv[1],&db))
+  //  Open .db or .dam
+
+  status = Open_DB(argv[1],&db);
+  if (status < 0)
     exit (1);
   reads = db.reads;
 
@@ -106,9 +110,9 @@ int main(int argc, char *argv[])
     int         nreads;
     int         i;
 
-    nbin = (db.maxlen-1)/BIN + 1;
-    hist = (int *) Malloc(sizeof(int)*nbin,"Allocating histograms");
-    bsum = (int64 *) Malloc(sizeof(int64)*nbin,"Allocating histograms");
+    nbin  = (db.maxlen-1)/BIN + 1;
+    hist  = (int *) Malloc(sizeof(int)*nbin,"Allocating histograms");
+    bsum  = (int64 *) Malloc(sizeof(int64)*nbin,"Allocating histograms");
     if (hist == NULL || bsum == NULL)
       exit (1);
 
@@ -122,15 +126,13 @@ int main(int argc, char *argv[])
       if ( ! ALL)
         { for (i = 0; i < db.nreads;  i++)
             if ((reads[i].flags & DB_BEST) == 0)
-              { reads[i].beg = 1;
-                reads[i].end = 0;
-              }
+              reads[i].rlen = -1;
         }
 
       totlen = 0;
       nreads = 0;
       for (i = 0; i < db.nreads; i++)
-        { int rlen = ((int) reads[i].end) - reads[i].beg;
+        { int rlen = reads[i].rlen;
           if (rlen >= CUTOFF)
             { totlen += rlen;
               nreads += 1;
@@ -142,63 +144,83 @@ int main(int argc, char *argv[])
       ave = totlen/nreads;
       dev = 0;
       for (i = 0; i < db.nreads; i++)
-        { int rlen = ((int) reads[i].end) - reads[i].beg;
+        { int rlen = reads[i].rlen;
           if (rlen >= CUTOFF)
             dev += (rlen-ave)*(rlen-ave);
         }
       dev = (int64) sqrt((1.*dev)/nreads);
 
-      if (CUTOFF == 0 && ALL)
-        { printf("\nStatistics over all reads in the data set\n\n");
-          Print_Number((int64) nreads,15,stdout);
-          printf(" reads\n");
-          Print_Number(totlen,15,stdout);
-          printf(" base pairs\n");
-        }
+      if (status)
+        printf("\nStatistics for all contigs");
+      else if (ALL)
+        printf("\nStatistics for all reads");
       else
-        { if (ALL)
-            printf("\nStatistics for all reads");
-          else
-            printf("\nStatistics for all wells");
-          if (CUTOFF > 0)
-            { printf(" of length ");
-              Print_Number(CUTOFF,0,stdout);
-              printf(" bases or more\n\n");
-            }
-          else
-            printf(" in the data set\n\n");
-          Print_Number((int64) nreads,15,stdout);
-          printf(" reads       out of ");
-          Print_Number((int64 ) db.nreads,15,stdout);
-          printf("   %5.1f%% loss\n",100.-(100.*nreads)/db.nreads);
-          Print_Number(totlen,15,stdout);
-          printf(" base pairs  out of ");
-          Print_Number(db.totlen,15,stdout);
-          printf("   %5.1f%% loss\n",100.-(100.*totlen)/db.totlen);
+        printf("\nStatistics for all wells");
+      if (CUTOFF > 0)
+        { printf(" of length ");
+          Print_Number(CUTOFF,0,stdout);
+          printf(" bases or more\n\n");
         }
-      printf("\nBase composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n\n",
-             db.freq[0],db.freq[1],db.freq[2],db.freq[3]);
+      else if (status)
+        printf(" in the map index\n\n");
+      else
+        printf(" in the data set\n\n");
+
+      Print_Number((int64) nreads,15,stdout);
+      if (status)
+        printf(" contigs");
+      else
+        printf(" reads");
+      if (nreads != db.nreads)
+        { printf("       out of ");
+          Print_Number((int64 ) db.nreads,15,stdout);
+          printf("  (%5.1f%%)",(100.*nreads)/db.nreads);
+        }
+      printf("\n");
+
+      Print_Number(totlen,15,stdout);
+      printf(" base pairs");
+      if (totlen != db.totlen)
+        { printf("  out of ");
+          Print_Number(db.totlen,15,stdout);
+          printf("  (%5.1f%%)",(100.*totlen)/db.totlen);
+        }
+      printf("\n\n");
+
       Print_Number(ave,15,stdout);
-      printf(" average read length\n");
-      Print_Number(dev,15,stdout);
-      printf(" standard deviation\n");
+      if (status)
+        printf(" average contig length\n");
+      else
+        { printf(" average read length\n");
+          Print_Number(dev,15,stdout);
+          printf(" standard deviation\n");
+        }
+
+      printf("\n\nBase composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n",
+             db.freq[0],db.freq[1],db.freq[2],db.freq[3]);
     }
 
     { int64 btot;
-      int   cum;
+      int   cum, skip;
 
-      printf("\nDistribution of Read Lengths (Bin size = ");
+      printf("\n\nDistribution of Read Lengths (Bin size = ");
       Print_Number((int64) BIN,0,stdout);
-      printf(")\n\n    Bin:      Count  %% Reads  %% Bases   Average\n");
+      printf(")\n\n        Bin:      Count  %% Reads  %% Bases     Average\n");
+      if (status)
+        skip = 0;
+      else
+        skip = -1;
       cum  = 0;
       btot = 0;
       for (i = nbin-1; i >= 0; i--)
         { cum  += hist[i];
           btot += bsum[i];
-          Print_Number((int64) (i*BIN),7,stdout);
-          printf(":");
-          Print_Number((int64) hist[i],11,stdout);
-          printf("    %5.1f    %5.1f    %5lld\n",(100.*cum)/nreads,(100.*btot)/totlen,btot/cum);
+          if (hist[i] != skip)
+            { Print_Number((int64) (i*BIN),11,stdout);
+              printf(":");
+              Print_Number((int64) hist[i],11,stdout);
+              printf("    %5.1f    %5.1f   %9lld\n",(100.*cum)/nreads,(100.*btot)/totlen,btot/cum);
+            }
           if (cum == nreads) break;
         }
       printf("\n");
@@ -226,12 +248,12 @@ int main(int argc, char *argv[])
         totlen = 0;
         numint = 0;
         for (i = 0; i < db.nreads; i++)
-          { rlen = reads[i].end - reads[i].beg;
+          { rlen = reads[i].rlen;
             if (rlen >= CUTOFF)
               { edata = (int *) (data + anno[i+1]);
                 for (idata = (int *) (data + anno[i]); idata < edata; idata += 2)
                   { numint += 1;
-                    totlen += (idata[1] - *idata) + 1;
+                    totlen += idata[1] - *idata;
                   }
               }
           }

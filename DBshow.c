@@ -55,16 +55,29 @@
 
 #include "DB.h"
 
-static char *Usage = "[-udqUQ] [-w<int(80)>] <path:db> [ <reads:range> ... ]";
+#ifdef HIDE_FILES
+#define PATHSEP "/."
+#else
+#define PATHSEP "/"
+#endif
+
+static char *Usage = "[-udqUQ] [-w<int(80)>] <path:db|dam> [ <reads:range> ... ]";
 
 #define LAST_READ_SYMBOL  '$'
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   HITS_TRACK *dust;
+  FILE       *hdrs = NULL;
+
+  int         nfiles;
+  char      **flist = NULL;
+  int        *findx = NULL;
+
   int         reps, *pts;
+
   int         DUST, TRIM, UPPER;
-  int         QVTOO, QVNUR;
+  int         QVTOO, QVNUR, DAM;
   int         WIDTH;
 
   //  Process arguments
@@ -92,6 +105,7 @@ int main(int argc, char *argv[])
         argv[j++] = argv[i];
     argc = j;
 
+    DAM   = 0;
     DUST  = flags['d'];
     TRIM  = 1-flags['u'];
     UPPER = 1+flags['U'];
@@ -106,13 +120,35 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Open DB, QVs if requested, Dust track if requested, and then trim unless -u set
+  //  Open DB or DAM, and if a DAM open also .hdr file
 
-  if (Open_DB(argv[1],db))
-    exit (1);
+  { char *pwd, *root;
+    int   status;
+
+    status = Open_DB(argv[1],db);
+    if (status < 0)
+      exit (1);
+    if (status == 1)
+      { root   = Root(argv[1],".db");
+        pwd    = PathTo(argv[1]);
+
+        hdrs = Fopen(Catenate(pwd,PATHSEP,root,".hdr"),"r");
+        if (hdrs == NULL)
+          exit (1);
+        DAM  = 1;
+        TRIM = QVTOO = QVNUR = 0;
+
+        free(root);
+        free(pwd);
+      }
+  }
+
+  //  Load QVs if requested
 
   if (QVTOO || QVNUR)
     Load_QVs(db);
+
+  //  Load the dust track if requested
 
   if (DUST)
     { dust = Load_Track(db,"dust");
@@ -129,8 +165,70 @@ int main(int argc, char *argv[])
   else
     dust = NULL;
 
-  if (TRIM)
-    Trim_DB(db);
+  //  If not a DAM then get prolog names and index ranges from the .db file 
+
+  if (!DAM)
+    { char *pwd, *root;
+      FILE *dstub;
+      int   i;
+
+      root   = Root(argv[1],".db");
+      pwd    = PathTo(argv[1]);
+      dstub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
+      if (dstub == NULL)
+        exit (1);
+      free(pwd);
+      free(root);
+
+      if (fscanf(dstub,DB_NFILE,&nfiles) != 1)
+        SYSTEM_ERROR
+
+      flist = (char **) Malloc(sizeof(char *)*nfiles,"Allocating file list");
+      findx = (int *) Malloc(sizeof(int *)*(nfiles+1),"Allocating file index");
+      if (flist == NULL || findx == NULL)
+        exit (1);
+
+      findx += 1;
+      findx[-1] = 0;
+
+      for (i = 0; i < nfiles; i++)
+        { char prolog[MAX_NAME], fname[MAX_NAME];
+  
+          if (fscanf(dstub,DB_FDATA,findx+i,fname,prolog) != 3)
+            SYSTEM_ERROR
+          if ((flist[i] = Strdup(prolog,"Adding to file list")) == NULL)
+            exit (1);
+        }
+
+      fclose(dstub);
+
+      //  If TRIM (the default) then "trim" prolog ranges and the DB
+
+      if (TRIM)
+        { int        nid, oid;
+          int        cutoff, allflag;
+          HITS_READ *reads;
+
+          reads  = db->reads;
+          cutoff = db->cutoff;
+          if (db->all)
+            allflag = 0;
+          else
+            allflag = DB_BEST;
+          
+          nid = oid = 0;
+          for (i = 0; i < nfiles; i++)
+            { while (oid < findx[i])
+                { if ((reads[oid].flags & DB_BEST) >= allflag && reads[oid].rlen >= cutoff)
+                    nid++;
+                  oid += 1;
+                }
+              findx[i] = nid;
+            }
+
+          Trim_DB(db);
+        }
+    }
 
   //  Process read index arguments into a list of read ranges
 
@@ -188,13 +286,14 @@ int main(int argc, char *argv[])
     }
 
   //  Display each read (and/or QV streams) in the active DB according to the
-  //    range pairs in pts[0..reps)
+  //    range pairs in pts[0..reps) and according to the display options.
 
   { HITS_READ  *reads;
     int        *anno, *data;
     char       *read, **entry;
     int         c, b, e, i;
     int         hilight;
+    int         map;
 
     read  = New_Read_Buffer(db);
     if (QVNUR || QVTOO)
@@ -213,6 +312,7 @@ int main(int argc, char *argv[])
     if (UPPER == 1)
       hilight = -hilight;
 
+    map   = 0;
     reads = db->reads;
     for (c = 0; c < reps; c += 2)
       { b = pts[c]-1;
@@ -225,16 +325,31 @@ int main(int argc, char *argv[])
             HITS_READ *r;
 
             r   = reads + i;
-            len = r->end - r->beg;
+            len = r->rlen;
+
 
             flags = r->flags;
             qv    = (flags & DB_QV);
-            if (QVNUR)
-              printf("@Prolog/%d/%d_%d",r->origin,r->beg,r->end);
+            if (DAM)
+              { char header[MAX_NAME];
+
+                fseeko(hdrs,r->coff,SEEK_SET);
+                fgets(header,MAX_NAME,hdrs);
+                header[strlen(header)-1] = '\0';
+                printf("%s :: Contig %d[%d,%d]",header,r->origin,r->fpulse,r->fpulse+len);
+              }
             else
-              printf(">Prolog/%d/%d_%d",r->origin,r->beg,r->end);
-            if (qv > 0)
-              printf(" RQ=0.%3d",qv);
+              { while (i < findx[map-1])
+                  map -= 1;
+                while (i >= findx[map])
+                  map += 1;
+                if (QVNUR)
+                  printf("@%s/%d/%d_%d",flist[map],r->origin,r->fpulse,r->fpulse+len);
+                else
+                  printf(">%s/%d/%d_%d",flist[map],r->origin,r->fpulse,r->fpulse+len);
+                if (qv > 0)
+                  printf(" RQ=0.%3d",qv);
+              }
             printf("\n");
 
             if (QVNUR)
@@ -254,7 +369,7 @@ int main(int argc, char *argv[])
                   { for (j = s; j < f; j += 2)
                       { bd = data[j];
                         ed = data[j+1];
-                        for (m = bd; m <= ed; m++)
+                        for (m = bd; m < ed; m++)
                           read[m] = (char) (read[m] + hilight);
                         if (j == s)
                           printf("> ");
@@ -293,6 +408,17 @@ int main(int argc, char *argv[])
       }
   }
 
+  if (DAM)
+    fclose(hdrs);
+  else
+    { int i;
+
+      for (i = 0; i < nfiles; i++)
+        free(flist[i]);
+      free(flist);
+      free(findx-1);
+    }
+  free(pts);
   Close_DB(db);
 
   exit (0);

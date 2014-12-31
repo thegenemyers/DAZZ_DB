@@ -35,15 +35,12 @@
 *                                                                                    *
 \************************************************************************************/
 
-/********************************************************************************************
+/*******************************************************************************************
  *
- *  Remove a list of .db databases
- *     Delete all the files for the given data bases <name>.db ... (there are a couple
- *     of hidden . files for each DB, and these are removed too.)  Do not use "rm" to
- *     remove a database.
+ *  Interim code: upgrade previous db to have int's for pulse positions.
  *
  *  Author:  Gene Myers
- *  Date  :  July 2013
+ *  Date  :  September 2014
  *
  ********************************************************************************************/
 
@@ -54,24 +51,75 @@
 
 #include "DB.h"
 
-static char *Usage = "<path:db|dam> ... ";
+#ifdef HIDE_FILES
+#define PATHSEP "/."
+#else
+#define PATHSEP "/"
+#endif
 
-static void HANDLER(char *path, char *name)
-{ (void) name;
-  unlink(path);
-}
+typedef struct
+  { int     origin; //  Well #
+    uint16  beg;    //  First pulse
+    uint16  end;    //  Last pulse
+    int64   boff;   //  Offset (in bytes) of compressed read in 'bases' file, or offset of
+                    //    uncompressed bases in memory block
+    int64   coff;   //  Offset (in bytes) of compressed quiva streams in 'quiva' file
+    int     flags;  //  QV of read + flags above
+  } HITS_OLD;
+
+typedef struct
+  { int     origin; //  Well #
+    int     beg;    //  First pulse
+    int     end;    //  Last pulse
+    int64   boff;   //  Offset (in bytes) of compressed read in 'bases' file, or offset of
+                    //    uncompressed bases in memory block
+    int64   coff;   //  Offset (in bytes) of compressed quiva streams in 'quiva' file
+    int     flags;  //  QV of read + flags above
+  } HITS_NEW;
 
 int main(int argc, char *argv[])
-{ int   i;
+{ HITS_DB    db;
+  FILE      *nxfile, *ixfile;
+  char      *pwd, *root;
+  int        i;
 
-  Prog_Name = Strdup("DBrm","");
+  if (argc != 2)
+    { fprintf(stderr,"Usage: %s <path:db>\n",argv[0]);
+      exit (1);
+    }
 
-  if (argc <= 1)
-    fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+  pwd    = PathTo(argv[1]);
+  root   = Root(argv[1],".db");
+  ixfile = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r");
+  nxfile = Fopen(Catenate(pwd,PATHSEP,root,".ndx"),"w");
+  if (ixfile == NULL || nxfile == NULL)
+    exit (1);
+  free(pwd);
+  free(root);
 
-  for (i = 1; i < argc; i++)
-    if (List_DB_Files(argv[i],HANDLER))
-      fprintf(stderr,"%s: Could not list database %s\n",Prog_Name,argv[i]);
+  if (fread(&db,sizeof(HITS_DB),1,ixfile) != 1)
+    SYSTEM_ERROR
+  fwrite(&db,sizeof(HITS_DB),1,nxfile);
+
+  for (i = 0; i < db.oreads; i++)
+    { HITS_OLD  orec;
+      HITS_NEW  nrec;
+
+      if (fread(&orec,sizeof(HITS_OLD),1,ixfile) != 1)
+        SYSTEM_ERROR
+
+      nrec.origin = orec.origin;
+      nrec.beg    = orec.beg;
+      nrec.end    = orec.end;
+      nrec.boff   = orec.boff;
+      nrec.coff   = orec.coff;
+      nrec.flags  = orec.flags;
+
+      fwrite(&nrec,sizeof(HITS_NEW),1,nxfile);
+    }
+
+  fclose(ixfile);
+  fclose(nxfile);
 
   exit (0);
 }

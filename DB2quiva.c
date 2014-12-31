@@ -90,14 +90,18 @@ int main(int argc, char *argv[])
 
   //  Open db, db stub file, and .qvs file
 
-  { char    *pwd, *root;
+  { char *pwd, *root;
+    int   status;
 
-    if (Open_DB(argv[1],db))
-      { fprintf(stderr,"%s: Database %s.db could not be opened\n",Prog_Name,argv[1]);
+    status = Open_DB(argv[1],db);
+    if (status < 0)
+      exit (1);
+    if (status == 1)
+      { fprintf(stderr,"%s: Cannot be called on a .dam index: %s\n",Prog_Name,argv[1]);
         exit (1);
       }
     if (db->part > 0)
-      { fprintf(stderr,"%s: Cannot be called on a block: %s.db\n",Prog_Name,argv[1]);
+      { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[1]);
         exit (1);
       }
 
@@ -155,9 +159,9 @@ int main(int argc, char *argv[])
 
             r     = reads + i;
             flags = r->flags;
-            rlen  = r->end - r->beg;
+            rlen  = r->rlen;
             qv    = (flags & DB_QV);
-            fprintf(ofile,"@%s/%d/%d_%d",prolog,r->origin,r->beg,r->end);
+            fprintf(ofile,"@%s/%d/%d_%d",prolog,r->origin,r->fpulse,r->fpulse+rlen);
             if (qv > 0)
               fprintf(ofile," RQ=0.%3d",qv);
             fprintf(ofile,"\n");

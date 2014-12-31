@@ -35,12 +35,38 @@
 *                                                                                    *
 \************************************************************************************/
 
+/************************************************************************************\
+
+UPGRADE & DEVELOPER NOTES ! ! !
+
+  If you have already built a big database and don't want to rebuild it, but do want
+to use a more recent version of the software that entails a change to the data structures
+(currently the updates on Sept 25, 2014 and December 30, 2014), please note the routines
+DBupgrade.Sep.25.2014 and DBupgrade.30.2014.  These take a DB, say X, as an argument, and
+produce a file .X.nid which you should then replace .X.idx with.  To update a very old
+DB to today's version you will need to run both in sequence.
+
+  To convert from before Dec. 30 2014 to after you will also need to recreate the "dust"
+track is you have one.
+
+  Both of the programs can be made with "make" but are not by default created when make
+is called without an argument.
+
+  For those interested in the details, on September 25, the "beg" and "end" fields went
+from shorts to ints, and on December 30, the "beg" and "end" fields became "fpulse" and
+"rlen", respectively where fpulse = beg and rlen = end-beg.
+
+  Developers shouls also not carefully that the calling conventions to Open_DB have changed
+and there are new utility routines Number_Digits and Check_Track.
+
+\************************************************************************************/
+
 
                 The Dazzler Database Library
 
                             Author:  Gene Myers
                             First:   July 17, 2013
-                            Current: April 13, 2014
+                            Current: December 30, 2014
 
   To facilitate the multiple phases of the dazzler assembler, we organize all the read
 data into what is effectively a "database" of the reads and their meta-information.
@@ -113,6 +139,29 @@ commands that do not place a prefixing "." before secondary file names, e.g. FOO
 instead of .FOO.idx.  One then sees all the files realizing a DB when listing the
 contents of a directory with ls.
 
+  While a Dazzler DB holds a collection of Pacbio reads, a Dazzler map DB or DAM holds
+a collection of contigs from a reference genome assembly.  This special type of DB has
+been introduced in order to facilitate the mapping of reads to an assembly and has
+been given the suffix .dam to distinguish it from an ordinary DB.  It is structurally
+identical to a .db except:
+
+(a) there is no concept of quality values, and hence no .FOO.qvs file.
+
+(b) every .fasta scaffold (a sequence with runs of N's between contigs estimating the
+    length of the gap) is broken into a separate contig sequence in the DB and the
+    header for each scaffold is retained in a new .FOO.hdr file.
+
+(c) the original and first and last pulse fields in the meta-data records held in
+    .FOO.idx, hold instead the contig number and the interval of the contig within
+    its original scaffold sequence.
+
+A map DB can equally well be the argument of many of the commands below that operate
+on normal DBs.  In general, a .dam can be an argument anywhere a .db can, with the
+exception of routines or optioned calls to routines that involve quality values, or
+the special routines fasta2DAM and DAM2fasta that create a DAM and reverse said,
+just like the pair fasta2DB and DB2fasta do for a normal DB.  So in general when we
+refer to a database we are referring to either a DB or a DAM.
+
   The command DBsplit sets or resets the current partition for a database which is
 determined by 3 parameters: (i) the total number of basepairs to place in each block,
 (ii) the minimum read length of reads to include within a block, and (iii) whether or
@@ -180,33 +229,50 @@ By .fastq convention each QV vector is output as a line without new-lines, and b
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
-5. DBsplit [-a] [-x<int>] [-s<int(400)>] <path:db>
+5. fasta2DAM [-v] <path:dam> <input:fasta> ...
 
-Divide the database <path>.db conceptually into a series of blocks referable to on the
-command line as <path>.1.db, <path>.2.db, ...  If the -x option is set then all reads
-less than the given length are ignored, and if the -a option is not set then secondary
-reads from a given well are also ignored.  The remaining reads, constituting what we
-call the trimmed DB, are split amongst the blocks so that each block is of size
--s * 1Mbp except for the last which necessarily contains a smaller residual.  The
-default value for -s is 400Mbp because blocks of this size can be compared by our
-"overlapper" dalign in roughly 16Gb of memory.  The blocks are very space efficient in
-that their sub-index of the master .idx is computed on the fly when loaded, and the
-.bps and .qvs files of base pairs and quality values, respectively, is shared with the
-master DB.  Any relevant portions of tracks associated with the DB are also computed
-on the fly when loading a database block.
+Builds a map DB or DAM from the list of .fasta files following the map database name
+argument.  Any .fasta entry that has a run of N's in it will be split into separate
+"contig" entries and the interval of the contig in the original entry recorded.  The
+header for each .fasta entry is saved with the contigs created from it.
 
-6. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db>
+6. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
 
-Runs the symmetric DUST algorithm over the reads in the untrimmed DB, say <path>.db,
-producing a track .<path>.dust[.anno,.data] that marks all intervals of low complexity
-sequence, where the scan window is of size -w, the threshold for being a low-complexity
-interval is -t, and only perfect intervals of size greater than -m are recorded.  If
-the -b option is set then the definition of low complexity takes into account the
-frequency of a given base.  The command is incremental if given a DB to which new data
-has been added since it was last run on the DB, then it will extend the track to
-include the new reads.  It is important to set this flag for genomes with a strong
-AT/GC bias, albeit the code is a tad slower.  The dust track, if present, is understood
-and used by DBshow, DBstats, and dalign.
+The set of .fasta files for the given map DB or DAM are recreated from the DAM
+exactly as they were input. That is, this is a perfect inversion, including the
+reconstitution of the proper .fasta headers and the concatenation of contigs with
+the proper number of N's between them. By default the output sequences are in lower
+case and 80 chars per line. The -U option specifies upper case should be used, and
+the characters per line, or line width, can be set to any positive value with
+the -w option.
+
+7. DBsplit [-a] [-x<int>] [-s<int(200)>] <path:db|dam>
+
+Divide the database <path>.db or <path>.dam conceptually into a series of blocks
+referable to on the command line as <path>.1, <path>.2, ...  If the -x option is set
+then all reads less than the given length are ignored, and if the -a option is not
+set then secondary reads from a given well are also ignored.  The remaining reads,
+constituting what we call the trimmed DB, are split amongst the blocks so that each
+block is of size -s * 1Mbp except for the last which necessarily contains a smaller
+residual.  The default value for -s is 200Mbp because blocks of this size can be
+compared by our "overlapper" dalign in roughly 16Gb of memory.  The blocks are very
+space efficient in that their sub-index of the master .idx is computed on the fly
+when loaded, and the .bps and .qvs files (if a .db) of base pairs and quality values,
+respectively, is shared with the master DB.  Any relevant portions of tracks
+associated with the DB are also computed on the fly when loading a database block.
+
+8. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
+
+Runs the symmetric DUST algorithm over the reads in the untrimmed DB <path>.db or
+<path>.dam producing a track .<path>.dust[.anno,.data] that marks all intervals of low
+complexity sequence, where the scan window is of size -w, the threshold for being a
+low-complexity interval is -t, and only perfect intervals of size greater than -m are
+recorded.  If the -b option is set then the definition of low complexity takes into
+account the frequency of a given base.  The command is incremental if given a DB to
+which new data has been added since it was last run on the DB, then it will extend
+the track to include the new reads.  It is important to set this flag for genomes with
+a strong AT/GC bias, albeit the code is a tad slower.  The dust track, if present,
+is understood and used by DBshow, DBstats, and dalign.
 
 DBdust can also be run over an untriimmed DB block in which case it outputs a track
 encoding where the trace file names contain the block number, e.g. .FOO.3.dust.anno
@@ -214,18 +280,18 @@ and .FOO.3.dust.data, given FOO.3 on the command line.  We call this a *block tr
 This permits job parallelism in block-sized chunks, and the resulting sequence of
 block tracks can then be merged into a track for the entire untrimmed DB with Catrack.
 
-7. Catrack [-v] <path:db> <track:name>
+9. Catrack [-v] <path:db|dam> <track:name>
 
 Find all block tracks of the form .<path>.#.<track>... and merge them into a single
-track, .<path>.<track>..., for the given DB.   The block track files must all encode
-the same kind of track data (this is checked), and the files must exist for block
-1, 2, 3, ... up to the last block number.
+track, .<path>.<track>..., for the given DB or DAM.   The block track files must all
+encode the same kind of track data (this is checked), and the files must exist for
+block 1, 2, 3, ... up to the last block number.
 
-8. DBshow [-udqUQ] [-w<int(80)>] <path:db> [ <reads:range> ... ]
+10. DBshow [-udqUQ] [-w<int(80)>] <path:db|dam> [ <reads:range> ... ]
 
-Displays the reads requested in the database <path>.db.  By default the command
-applies to the trimmed database, but if -u is set then the entire DB is used.  If no
-read arguments are given then every read in the database or database block is
+Displays the requested reads in the database <path>.db or <path>.dam.  By default the
+command applies to the trimmed database, but if -u is set then the entire DB is used.
+If no read arguments are given then every read in the database or database block is
 displayed.  Otherwise the list of supplied integer ranges give the ordinal positions
 in the actively loaded portion of the db.  A read range is either a lone integer or
 the symbol $, in which case the read range consists of just that read (the last read in
@@ -251,22 +317,22 @@ The .fasta or .quiva files that are output can be converted into a DB by fasta2D
 and quiva2DB (if the -d option is not set), providing a simple way to make a DB of a
 subset of the reads for testing purposes.
 
-9. DBstats [-a] [-x<int>] [-b<int(1000)] <path:db>
+11. DBstats [-a] [-x<int>] [-b<int(1000)] <path:db|dam>
 
-Show overview statistics for all the reads in the data base <path>.db that are not
-shorter than the length given by the -x option (if given).   A histogram of read
-lengths is also included where the bucket size can be controlled with the -b option.
-Normally, if several reads are all from the same well (insert), then only the longest
-read from the well is reported in the statistics.  If the -a flag is set then all
-reads are reported.
+Show overview statistics for all the reads in the data base <path>.db or <path>.dam
+that are not shorter than the length given by the -x option (if given).   A histogram
+of read lengths is also included where the bucket size can be controlled with the -b
+option.  Normally, if several reads are all from the same well (insert), then only
+the longest read from the well is reported in the statistics.  If the -a flag is set
+then all reads are reported.
 
-10. DBrm <path:db> ...
+12. DBrm <path:db|dam> ...
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
 
-11. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
+13. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
                               [-m<int(10000)>]  [-s<int(2000)>]
                               [-x<int(4000)>]   [-e<double(.15)>]
                               [-M<file>]
