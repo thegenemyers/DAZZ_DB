@@ -37,10 +37,10 @@
 
 /*******************************************************************************************
  *
- *  Interim code: upgrade previous db to have int's for pulse positions.
+ *  Interim code: upgrade previous db to have fpulse,rlen fields
  *
  *  Author:  Gene Myers
- *  Date  :  September 2014
+ *  Date  :  December 2014
  *
  ********************************************************************************************/
 

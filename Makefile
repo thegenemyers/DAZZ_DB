@@ -47,13 +47,13 @@ DAM2fasta: DAM2fasta.c DB.c DB.h QV.c QV.h
 DBupgrade.Sep.25.2014: DBupgrade.Sep.25.2014.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o DBupgrade.Sep.25.2014 DBupgrade.Sep.25.2014.c DB.c QV.c -lm
 
-DBupgrade.Dec.30.2014: DBupgrade.Dec.30.2014.c DB.c DB.h QV.c QV.h
-	gcc $(CFLAGS) -o DBupgrade.Dec.30.2014 DBupgrade.Dec.30.2014.c DB.c QV.c -lm
+DBupgrade.Dec.31.2014: DBupgrade.Dec.31.2014.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBupgrade.Dec.31.2014 DBupgrade.Dec.31.2014.c DB.c QV.c -lm
 
 clean:
 	rm -f $(ALL)
 	rm -fr *.dSYM
-	rm -f DBupgrade.Sep.25.2014 DBupgrade.Dec.30.2014
+	rm -f DBupgrade.Sep.25.2014 DBupgrade.Dec.31.2014
 	rm -f dazz.db.tar.gz
 
 install:
