@@ -174,6 +174,8 @@ int main(int argc, char *argv[])
 
       root   = Root(argv[1],".db");
       pwd    = PathTo(argv[1]);
+      if (db->part > 0)
+        *rindex(root,'.') = '\0';
       dstub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
       if (dstub == NULL)
         exit (1);
@@ -205,20 +207,22 @@ int main(int argc, char *argv[])
       //  If TRIM (the default) then "trim" prolog ranges and the DB
 
       if (TRIM)
-        { int        nid, oid;
+        { int        nid, oid, lid;
           int        cutoff, allflag;
           HITS_READ *reads;
 
-          reads  = db->reads;
+          reads  = db->reads - db->ofirst;
           cutoff = db->cutoff;
           if (db->all)
             allflag = 0;
           else
             allflag = DB_BEST;
           
-          nid = oid = 0;
+          nid = 0;
+          oid = db->ofirst;
+          lid = oid + db->nreads;
           for (i = 0; i < nfiles; i++)
-            { while (oid < findx[i])
+            { while (oid < findx[i] && oid < lid)
                 { if ((reads[oid].flags & DB_BEST) >= allflag && reads[oid].rlen >= cutoff)
                     nid++;
                   oid += 1;
@@ -227,6 +231,11 @@ int main(int argc, char *argv[])
             }
 
           Trim_DB(db);
+        }
+
+      else if (db->part > 0)
+        { for (i = 0; i < nfiles; i++)
+            findx[i] -= db->ofirst;
         }
     }
 
@@ -289,7 +298,8 @@ int main(int argc, char *argv[])
   //    range pairs in pts[0..reps) and according to the display options.
 
   { HITS_READ  *reads;
-    int        *anno, *data;
+    int64      *anno;
+    int        *data;
     char       *read, **entry;
     int         c, b, e, i;
     int         hilight;
@@ -302,11 +312,13 @@ int main(int argc, char *argv[])
       entry = NULL;
 
     if (dust != NULL)
-      { anno = (int *) dust->anno;
+      { anno = (int64 *) dust->anno;
         data = (int *) dust->data;
       }
     else
-      anno = data = NULL;
+      { anno = NULL;
+        data = NULL;
+      }
 
     hilight = 'a'-'A';
     if (UPPER == 1)
@@ -320,13 +332,12 @@ int main(int argc, char *argv[])
         if (e > db->nreads)
           e = db->nreads;
         for (i = b; i < e; i++)
-          { int        j, k, len;
+          { int        len;
             int        flags, qv;
             HITS_READ *r;
 
             r   = reads + i;
             len = r->rlen;
-
 
             flags = r->flags;
             qv    = (flags & DB_QV);
@@ -361,7 +372,8 @@ int main(int argc, char *argv[])
               }
 
             if (dust != NULL)
-              { int  s, f, bd, ed, m;
+              { int64  s, f, j;
+                int    bd, ed, m;
 
                 s = (anno[i] >> 2);
                 f = (anno[i+1] >> 2);
@@ -380,11 +392,15 @@ int main(int argc, char *argv[])
               }
 
             if (QVNUR)
-              { for (k = 0; k < 5; k++)
+              { int k;
+
+                for (k = 0; k < 5; k++)
                   printf("%s\n",entry[k]);
               }
             else if (QVTOO)
-              { printf("\n");
+              { int j, k;
+
+                printf("\n");
                 for (j = 0; j+WIDTH < len; j += WIDTH)
                   { printf("%.*s\n",WIDTH,read+j);
                     for (k = 0; k < 5; k++)
@@ -399,7 +415,9 @@ int main(int argc, char *argv[])
                   }
               }
             else
-              { for (j = 0; j+WIDTH < len; j += WIDTH)
+              { int j;
+
+                for (j = 0; j+WIDTH < len; j += WIDTH)
                   printf("%.*s\n",WIDTH,read+j);
                 if (j < len)
                   printf("%s\n",read+j);

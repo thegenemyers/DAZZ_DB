@@ -239,11 +239,11 @@ int main(int argc, char *argv[])
         dust = Load_Track(&db,Numbered_Suffix("",db.part,".dust")); 
       }
     if (dust != NULL)
-      { char *data = dust->data;
-        int  *anno = (int *) dust->anno;
-        int   i, rlen;
-        int  *idata, *edata;
-        int64 numint, totlen;
+      { char  *data = dust->data;
+        int64 *anno = (int64 *) dust->anno;
+        int    i, rlen;
+        int   *idata, *edata;
+        int64  numint, totlen;
 
         totlen = 0;
         numint = 0;

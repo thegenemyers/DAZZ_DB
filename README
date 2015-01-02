@@ -46,17 +46,19 @@ the routines DBupgrade.Sep.25.2014 and DBupgrade.Dec.31.2014.  These take a DB, 
 as an argument, and produce a file .X.nid which you should then replace .X.idx with.
 To update a very old DB to today's version you will need to run both in sequence.
 
-  To convert from before Dec. 31 2014 to after you will also need to recreate the "dust"
-track is you have one.
-
-  Both of the programs can be made with "make" but are not by default created when make
-is called without an argument.
+  Both of the upgrade programs can be made with "make" but are not by default created
+when make is called without an argument.
 
   For those interested in the details, on September 25, the "beg" and "end" fields went
 from shorts to ints, and on December 31, the "beg" and "end" fields became "fpulse" and
 "rlen", respectively where fpulse = beg and rlen = end-beg.
 
-  Developers shouls also not carefully that the calling conventions to Open_DB have
+  Unfortunately, the .dust track formats also changed on Dec.31.2014 and Jan.1.2015.  To
+upgrade said use DUSTupgrade.Jan.1.2015.  This program takes a DB, say X as an argument
+and produces .X.next.anno and .X.next.data which you should then replace .X.dust.* with.
+Of course, it may, if the DB is not too big, be easier and simply to just rerun DBdust.
+
+  Developers should also note carefully that the calling conventions to Open_DB have
 changed and there are new utility routines Number_Digits and Check_Track.
 
 \************************************************************************************/
