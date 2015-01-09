@@ -135,8 +135,8 @@ int main(int argc, char *argv[])
         hdrs = Fopen(Catenate(pwd,PATHSEP,root,".hdr"),"r");
         if (hdrs == NULL)
           exit (1);
-        DAM  = 1;
-        TRIM = QVTOO = QVNUR = 0;
+        DAM   = 1;
+        QVTOO = QVNUR = 0;
 
         free(root);
         free(pwd);
