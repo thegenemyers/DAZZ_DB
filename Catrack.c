@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     dout = fopen(Catenate(prefix,argv[2],".","data"),"r");
     if (dout != NULL)
       { fprintf(stderr,"%s: Track file %s%s.data already exists!\n",Prog_Name,prefix,argv[2]);
-        fclose(aout);
+        fclose(dout);
         exit (1);
       }
 

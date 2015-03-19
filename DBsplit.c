@@ -181,9 +181,9 @@ int main(int argc, char *argv[])
   }
 
   { HITS_READ *reads  = db.reads;
-    int        nreads = db.oreads;
+    int        nreads = db.ureads;
     int64      size, totlen;
-    int        nblock, ireads, breads, rlen, fno;
+    int        nblock, ireads, treads, rlen, fno;
     int        i;
 
     size = SIZE*1000000ll;
@@ -191,17 +191,17 @@ int main(int argc, char *argv[])
     nblock = 0;
     totlen = 0;
     ireads = 0;
-    breads = 0;
+    treads = 0;
     fprintf(dbfile,DB_BDATA,0,0);
     if (ALL)
       for (i = 0; i < nreads; i++)
         { rlen = reads[i].rlen;
           if (rlen >= CUTOFF)
             { ireads += 1;
-              breads += 1;
+              treads += 1;
               totlen += rlen;
               if (totlen >= size)
-                { fprintf(dbfile,DB_BDATA,i+1,breads);
+                { fprintf(dbfile,DB_BDATA,i+1,treads);
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -213,10 +213,10 @@ int main(int argc, char *argv[])
         { rlen = reads[i].rlen;
           if (rlen >= CUTOFF && (reads[i].flags & DB_BEST) != 0)
             { ireads += 1;
-              breads += 1;
+              treads += 1;
               totlen += rlen;
               if (totlen >= size)
-                { fprintf(dbfile,DB_BDATA,i+1,breads);
+                { fprintf(dbfile,DB_BDATA,i+1,treads);
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
         }
 
     if (ireads > 0)
-      { fprintf(dbfile,DB_BDATA,nreads,breads);
+      { fprintf(dbfile,DB_BDATA,nreads,treads);
         nblock += 1;
       }
     fno = fileno(dbfile);
@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
 
     dbs.cutoff = CUTOFF;
     dbs.all    = ALL;
-    dbs.breads = breads;
+    dbs.treads = treads;
     rewind(ixfile);
     fwrite(&dbs,sizeof(HITS_DB),1,ixfile);
   }

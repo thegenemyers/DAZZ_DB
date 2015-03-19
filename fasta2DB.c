@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
   char **flist;
 
   HITS_DB db;
-  int     oreads;
+  int     ureads;
   int64   offset;
 
   int     VERBOSE;
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
   //    ostub  = new image of db file (will overwrite old image at end)
   //    bases  = .bps file positioned for appending
   //    indx   = .idx file positioned for appending
-  //    oreads = # of reads currently in db
+  //    ureads = # of reads currently in db
   //    offset = offset in .bps at which to place next sequence
   //    ioff   = offset in .idx file to truncate to if command fails
   //    boff   = offset in .bps file to truncate to if command fails
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
 
         fwrite(&db,sizeof(HITS_DB),1,indx);
 
-        oreads  = 0;
+        ureads  = 0;
         offset  = 0;
         boff    = 0;
         ioff    = 0;
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         fseeko(bases,0,SEEK_END);
         fseeko(indx, 0,SEEK_END);
 
-        oreads = db.oreads;
+        ureads = db.ureads;
         offset = ftello(bases);
         boff   = offset;
         ioff   = ftello(indx);
@@ -382,14 +382,14 @@ int main(int argc, char *argv[])
                   count[x] += 1;
                   read[i]   = (char) x;
                 }
-              oreads += 1;
+              ureads += 1;
               totlen += rlen;
               if (rlen > maxlen)
                 maxlen = rlen;
 
               prec[pcnt].origin = well;
               prec[pcnt].fpulse = beg;
-              prec[pcnt].rlen   = end-beg;
+              prec[pcnt].rlen   = rlen;
               prec[pcnt].boff   = offset;
               prec[pcnt].coff   = -1;
               prec[pcnt].flags  = qv;
@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
           prec[x].flags |= DB_BEST;
           fwrite(prec,sizeof(HITS_READ),pcnt,indx);
 
-          fprintf(ostub,DB_FDATA,oreads,core,prolog);
+          fprintf(ostub,DB_FDATA,ureads,core,prolog);
 
 	  free(prolog);
           fclose(input);
@@ -446,7 +446,7 @@ int main(int argc, char *argv[])
 
     //  Finished loading all sequences: update relevant fields in db record
 
-    db.oreads = oreads;
+    db.ureads = ureads;
     if (istub == NULL)
       { for (c = 0; c < 4; c++)
           db.freq[c] = (float) ((1.*count[c])/totlen);
@@ -468,8 +468,8 @@ int main(int argc, char *argv[])
 
   if (db.cutoff >= 0)
     { int64      totlen, dbpos, size;
-      int        nblock, ireads, bfirst, rlen;
-      int        ofirst, cutoff, allflag;
+      int        nblock, ireads, tfirst, rlen;
+      int        ufirst, cutoff, allflag;
       HITS_READ  record;
       int        i;
 
@@ -498,28 +498,28 @@ int main(int argc, char *argv[])
 
       nblock -= 1;
       for (i = 0; i <= nblock; i++)
-        { if (fscanf(istub,DB_BDATA,&ofirst,&bfirst) != 2)
+        { if (fscanf(istub,DB_BDATA,&ufirst,&tfirst) != 2)
             SYSTEM_ERROR
-          fprintf(ostub,DB_BDATA,ofirst,bfirst);
+          fprintf(ostub,DB_BDATA,ufirst,tfirst);
         }
 
       //  Seek the first record of the last block of the existing db in .idx, and then
       //    compute and record partition indices for the rest of the db from this point
       //    forward.
 
-      fseeko(indx,sizeof(HITS_DB)+sizeof(HITS_READ)*ofirst,SEEK_SET);
+      fseeko(indx,sizeof(HITS_DB)+sizeof(HITS_READ)*ufirst,SEEK_SET);
       totlen = 0;
       ireads = 0;
-      for (i = ofirst; i < oreads; i++)
+      for (i = ufirst; i < ureads; i++)
         { if (fread(&record,sizeof(HITS_READ),1,indx) != 1)
             SYSTEM_ERROR
           rlen = record.rlen;
           if (rlen >= cutoff && (record.flags & DB_BEST) >= allflag)
             { ireads += 1;
-              bfirst += 1;
+              tfirst += 1;
               totlen += rlen;
               if (totlen >= size)
-                { fprintf(ostub," %9d %9d\n",i+1,bfirst);
+                { fprintf(ostub," %9d %9d\n",i+1,tfirst);
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -528,17 +528,17 @@ int main(int argc, char *argv[])
         }
 
       if (ireads > 0)
-        { fprintf(ostub,DB_BDATA,oreads,bfirst);
+        { fprintf(ostub,DB_BDATA,ureads,tfirst);
           nblock += 1;
         }
 
-      db.breads = bfirst;
+      db.treads = tfirst;
 
       fseeko(ostub,dbpos,SEEK_SET);
       fprintf(ostub,DB_NBLOCK,nblock);    //  Rewind and record the new number of blocks
     }
   else
-    db.breads = oreads;
+    db.treads = ureads;
 
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);   //  Write the finalized db record into .idx

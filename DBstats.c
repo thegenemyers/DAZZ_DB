@@ -52,16 +52,23 @@
 
 #include "DB.h"
 
-static char *Usage = " [-a] [-x<int>] [-b<int(1000)>] <name:db|dam>";
+static char *Usage = " [-nu] [-b<int(1000)>] [-m<track>]+ <name:db|dam>";
 
 int main(int argc, char *argv[])
-{ HITS_DB     db;
-  HITS_READ  *reads;
-  int         status;
+{ HITS_DB _db, *db = &_db;
+  int     dam;
 
-  int        ALL;
-  int        CUTOFF;
-  int        BIN;
+  int64   ototal;
+  int     oreads;
+  int     nbin, *hist;
+  int64  *bsum;
+
+  int     NONE;
+  int     TRIM;
+  int     BIN;
+
+  int     MMAX, MTOP;
+  char  **MASK;
 
   { int   i, j, k;
     int   flags[128];
@@ -69,28 +76,39 @@ int main(int argc, char *argv[])
 
     ARG_INIT("DBstats")
 
-    CUTOFF = 0;
     BIN    = 1000;
+    MTOP  = 0;
+    MMAX  = 10;
+    MASK  = (char **) Malloc(MMAX*sizeof(char *),"Allocating mask track array");
+    if (MASK == NULL)
+      exit (1);
 
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("a")
-            break;
-          case 'x':
-            ARG_NON_NEGATIVE(CUTOFF,"Min read length cutoff")
+            ARG_FLAGS("nu")
             break;
           case 'b':
             ARG_POSITIVE(BIN,"Bin size")
+            break;
+          case 'm':
+            if (MTOP >= MMAX)
+              { MMAX = 1.2*MTOP + 10;
+                MASK = (char **) Realloc(MASK,MMAX*sizeof(char *),"Reallocating mask track array");
+                if (MASK == NULL)
+                  exit (1);
+              }
+            MASK[MTOP++] = argv[i]+2;
             break;
         }
       else
         argv[j++] = argv[i];
     argc = j;
 
-    ALL = flags['a'];
+    NONE = flags['n'];
+    TRIM = 1-flags['u'];
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -98,19 +116,60 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Open .db or .dam
+  { int i, status;
 
-  status = Open_DB(argv[1],&db);
-  if (status < 0)
-    exit (1);
-  reads = db.reads;
+    //  Open .db or .dam
 
-  { int         nbin, *hist;
-    int64       totlen, *bsum;
-    int         nreads;
-    int         i;
+    status = Open_DB(argv[1],db);
+    if (status < 0)
+      exit (1);
+    dam = status;
 
-    nbin  = (db.maxlen-1)/BIN + 1;
+    //  Check tracks and load tracks for untrimmed DB
+
+    for (i = 0; i < MTOP; i++)
+      { status = Check_Track(db,MASK[i]);
+        if (status == -2)
+          fprintf(stderr,"%s: Warning: -m%s option given but no track found.\n",Prog_Name,MASK[i]);
+        else if (status == -1)
+          fprintf(stderr,"%s: Warning: %s track not sync'd with db.\n",Prog_Name,MASK[i]);
+        else if (status == 0)
+          Load_Track(db,MASK[i]);
+        else if (status == 1 && !TRIM)
+          fprintf(stderr,"%s: Warning: %s track is for a trimmed db but -u is set.\n",
+                         Prog_Name,MASK[i]);
+      }
+
+    oreads = db->nreads;
+    ototal = db->totlen;
+
+    if (TRIM)
+      { Trim_DB(db);
+
+        //  Load tracks for trimmed DB
+
+        for (i = 0; i < MTOP; i++)
+          { status = Check_Track(db,MASK[i]);
+            if (status < 0)
+              continue;
+            else if (status == 1)
+              Load_Track(db,MASK[i]);
+          }
+      }
+  }
+
+  { int        i;
+    int64      totlen;
+    int        nreads, maxlen;
+    int64      ave, dev;
+    HITS_READ *reads;
+
+    nreads = db->nreads;
+    totlen = db->totlen;
+    maxlen = db->maxlen;
+    reads  = db->reads;
+
+    nbin  = (maxlen-1)/BIN + 1;
     hist  = (int *) Malloc(sizeof(int)*nbin,"Allocating histograms");
     bsum  = (int64 *) Malloc(sizeof(int64)*nbin,"Allocating histograms");
     if (hist == NULL || bsum == NULL)
@@ -120,152 +179,180 @@ int main(int argc, char *argv[])
       { hist[i] = 0;
         bsum[i] = 0;
       }
-
-    { int64 ave, dev;
  
-      if ( ! ALL)
-        { for (i = 0; i < db.nreads;  i++)
-            if ((reads[i].flags & DB_BEST) == 0)
-              reads[i].rlen = -1;
-        }
+    for (i = 0; i < nreads; i++)
+      { int rlen = reads[i].rlen;
+        hist[rlen/BIN] += 1;
+        bsum[rlen/BIN] += rlen;
+      }
 
-      totlen = 0;
-      nreads = 0;
-      for (i = 0; i < db.nreads; i++)
-        { int rlen = reads[i].rlen;
-          if (rlen >= CUTOFF)
-            { totlen += rlen;
-              nreads += 1;
-              hist[rlen/BIN] += 1;
-              bsum[rlen/BIN] += rlen;
-            }
-        }
+    nbin = (maxlen-1)/BIN + 1;
+    ave  = totlen/nreads;
+    dev  = 0;
+    for (i = 0; i < nreads; i++)
+      { int rlen = reads[i].rlen;
+        dev += (rlen-ave)*(rlen-ave);
+      }
+    dev = (int64) sqrt((1.*dev)/nreads);
 
-      ave = totlen/nreads;
-      dev = 0;
-      for (i = 0; i < db.nreads; i++)
-        { int rlen = reads[i].rlen;
-          if (rlen >= CUTOFF)
-            dev += (rlen-ave)*(rlen-ave);
-        }
-      dev = (int64) sqrt((1.*dev)/nreads);
+    if (dam)
+      printf("\nStatistics for all contigs");
+    else if (db->all || !TRIM)
+      printf("\nStatistics for all wells");
+    else
+      printf("\nStatistics for all reads");
+    if (TRIM && db->cutoff > 0)
+      { printf(" of length ");
+        Print_Number(db->cutoff,0,stdout);
+        printf(" bases or more\n\n");
+      }
+    else if (dam)
+      printf(" in the map index\n\n");
+    else
+      printf(" in the data set\n\n");
 
-      if (status)
-        printf("\nStatistics for all contigs");
-      else if (ALL)
-        printf("\nStatistics for all reads");
-      else
-        printf("\nStatistics for all wells");
-      if (CUTOFF > 0)
-        { printf(" of length ");
-          Print_Number(CUTOFF,0,stdout);
-          printf(" bases or more\n\n");
-        }
-      else if (status)
-        printf(" in the map index\n\n");
-      else
-        printf(" in the data set\n\n");
+    Print_Number((int64) nreads,15,stdout);
+    if (dam)
+      printf(" contigs");
+    else
+      printf(" reads  ");
+    if (TRIM)
+      { printf("      out of ");
+        Print_Number((int64 ) oreads,15,stdout);
+        printf("  (%5.1f%%)",(100.*nreads)/oreads);
+      }
+    printf("\n");
 
-      Print_Number((int64) nreads,15,stdout);
-      if (status)
-        printf(" contigs");
-      else
-        printf(" reads");
-      if (nreads != db.nreads)
-        { printf("       out of ");
-          Print_Number((int64 ) db.nreads,15,stdout);
-          printf("  (%5.1f%%)",(100.*nreads)/db.nreads);
-        }
-      printf("\n");
+    Print_Number(totlen,15,stdout);
+    printf(" base pairs");
+    if (TRIM)
+      { printf("   out of ");
+        Print_Number(ototal,15,stdout);
+        printf("  (%5.1f%%)",(100.*totlen)/ototal);
+      }
+    printf("\n\n");
 
-      Print_Number(totlen,15,stdout);
-      printf(" base pairs");
-      if (totlen != db.totlen)
-        { printf("  out of ");
-          Print_Number(db.totlen,15,stdout);
-          printf("  (%5.1f%%)",(100.*totlen)/db.totlen);
-        }
-      printf("\n\n");
+    Print_Number(ave,15,stdout);
+    if (dam)
+      printf(" average contig length\n");
+    else
+      { printf(" average read length\n");
+        Print_Number(dev,15,stdout);
+        printf(" standard deviation\n");
+      }
 
-      Print_Number(ave,15,stdout);
-      if (status)
-        printf(" average contig length\n");
-      else
-        { printf(" average read length\n");
-          Print_Number(dev,15,stdout);
-          printf(" standard deviation\n");
-        }
+    printf("\n  Base composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n",
+           db->freq[0],db->freq[1],db->freq[2],db->freq[3]);
 
-      printf("\n\nBase composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n",
-             db.freq[0],db.freq[1],db.freq[2],db.freq[3]);
-    }
+    if (!NONE)
+      { int64 btot;
+        int   cum, skip;
 
-    { int64 btot;
-      int   cum, skip;
-
-      printf("\n\nDistribution of Read Lengths (Bin size = ");
-      Print_Number((int64) BIN,0,stdout);
-      printf(")\n\n        Bin:      Count  %% Reads  %% Bases     Average\n");
-      if (status)
-        skip = 0;
-      else
-        skip = -1;
-      cum  = 0;
-      btot = 0;
-      for (i = nbin-1; i >= 0; i--)
-        { cum  += hist[i];
-          btot += bsum[i];
-          if (hist[i] != skip)
-            { Print_Number((int64) (i*BIN),11,stdout);
-              printf(":");
-              Print_Number((int64) hist[i],11,stdout);
-              printf("    %5.1f    %5.1f   %9lld\n",(100.*cum)/nreads,(100.*btot)/totlen,btot/cum);
-            }
-          if (cum == nreads) break;
-        }
-      printf("\n");
-    }
-
-    free(hist);
-    free(bsum);
+        printf("\n  Distribution of Read Lengths (Bin size = ");
+        Print_Number((int64) BIN,0,stdout);
+        printf(")\n\n        Bin:      Count  %% Reads  %% Bases     Average\n");
+        if (dam)
+          skip = 0;
+        else
+          skip = -1;
+        cum  = 0;
+        btot = 0;
+        for (i = nbin-1; i >= 0; i--)
+          { cum  += hist[i];
+            btot += bsum[i];
+            if (hist[i] != skip)
+              { Print_Number((int64) (i*BIN),11,stdout);
+                printf(":");
+                Print_Number((int64) hist[i],11,stdout);
+                printf("    %5.1f    %5.1f   %9lld\n",(100.*cum)/nreads,
+                                                      (100.*btot)/totlen,btot/cum);
+              }
+            if (cum == nreads) break;
+          }
+      }
   }
 
-  { HITS_TRACK *dust;
+  { int64      totlen;
+    int        numint, maxlen;
+    int64      ave, dev;
+    HITS_TRACK *track;
 
-    dust = Load_Track(&db,"dust");
-    if (dust == NULL && db.part > 0)
-      { db.oreads = db.nreads;
-        db.ofirst = 0;
-        dust = Load_Track(&db,Numbered_Suffix("",db.part,".dust")); 
-      }
-    if (dust != NULL)
-      { char  *data = dust->data;
-        int64 *anno = (int64 *) dust->anno;
-        int    i, rlen;
+    for (track = db->tracks; track != NULL; track = track->next)
+      { char  *data = track->data;
+        int64 *anno = (int64 *) track->anno;
+        int    k, rlen;
         int   *idata, *edata;
-        int64  numint, totlen;
 
         totlen = 0;
         numint = 0;
-        for (i = 0; i < db.nreads; i++)
-          { rlen = reads[i].rlen;
-            if (rlen >= CUTOFF)
-              { edata = (int *) (data + anno[i+1]);
-                for (idata = (int *) (data + anno[i]); idata < edata; idata += 2)
-                  { numint += 1;
-                    totlen += idata[1] - *idata;
-                  }
+        maxlen = 0;
+        for (k = 0; k < db->nreads; k++)
+          { edata = (int *) (data + anno[k+1]);
+            for (idata = (int *) (data + anno[k]); idata < edata; idata += 2)
+              { rlen = idata[1] - *idata;
+                numint += 1;
+                totlen += rlen;
+                if (rlen > maxlen)
+                  maxlen = rlen;
               }
           }
+
+        nbin = (maxlen-1)/BIN + 1;
+
+        for (k = 0; k < nbin; k++)
+          { hist[k] = 0;
+            bsum[k] = 0;
+          }
+
+        ave  = totlen/numint;
+        dev  = 0;
+        for (k = 0; k < db->nreads; k++)
+          { edata = (int *) (data + anno[k+1]);
+            for (idata = (int *) (data + anno[k]); idata < edata; idata += 2)
+              { rlen = idata[1] - *idata;
+                dev += (rlen-ave)*(rlen-ave);
+                hist[rlen/BIN] += 1;
+                bsum[rlen/BIN] += rlen;
+              }
+          }
+        dev = (int64) sqrt((1.*dev)/numint);
+
+        printf("\n\nStatistics for %s-track\n",track->name);
+
+        printf("\n  There are ");
         Print_Number(numint,0,stdout);
-        printf(" low-complexity intervals totaling ");
+        printf(" intervals totaling ");
         Print_Number(totlen,0,stdout);
-        printf(" bases\n\n");
+        printf(" bases (%.1f%% of all data)\n",(100.*totlen)/db->totlen);
+
+        { int64 btot;
+          int   cum;
+
+          printf("\n  Distribution of %s intervals (Bin size = ",track->name);
+          Print_Number((int64) BIN,0,stdout);
+          printf(")\n\n        Bin:      Count  %% Intervals  %% Bases     Average\n");
+          cum  = 0;
+          btot = 0;
+          for (k = nbin-1; k >= 0; k--)
+            { cum  += hist[k];
+              btot += bsum[k];
+              if (hist[k] > 0)
+                { Print_Number((int64) (k*BIN),11,stdout);
+                  printf(":");
+                  Print_Number((int64) hist[k],11,stdout);
+                  printf("        %5.1f    %5.1f   %9lld\n",(100.*cum)/numint,
+                                                        (100.*btot)/totlen,btot/cum);
+                  if (cum == numint) break;
+                }
+            }
+          printf("\n");
+        }
       }
-    Close_Track(&db,"dust");
   }
 
-  Close_DB(&db);
+  free(hist);
+  free(bsum);
+  Close_DB(db);
 
   exit (0);
 }

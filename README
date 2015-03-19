@@ -43,7 +43,7 @@ UPGRADE & DEVELOPER NOTES ! ! !
 to use a more recent version of the software that entails a change to the data
 structures (currently the updates on Sept 25, 2014 and December 31, 2014), please note
 the routines DBupgrade.Sep.25.2014 and DBupgrade.Dec.31.2014.  These take a DB, say X,
-as an argument, and produce a file .X.nid which you should then replace .X.idx with.
+as an argument, and produce a file .X.ndx which you should then replace .X.idx with.
 To update a very old DB to today's version you will need to run both in sequence.
 
   Both of the upgrade programs can be made with "make" but are not by default created
@@ -289,44 +289,48 @@ track, .<path>.<track>..., for the given DB or DAM.   The block track files must
 encode the same kind of track data (this is checked), and the files must exist for
 block 1, 2, 3, ... up to the last block number.
 
-10. DBshow [-udqUQ] [-w<int(80)>] <path:db|dam> [ <reads:range> ... ]
+10. DBshow [-unqUQ] [-w<int(80)>] [-m<track>]+
+                    <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 
 Displays the requested reads in the database <path>.db or <path>.dam.  By default the
 command applies to the trimmed database, but if -u is set then the entire DB is used.
 If no read arguments are given then every read in the database or database block is
-displayed.  Otherwise the list of supplied integer ranges give the ordinal positions
-in the actively loaded portion of the db.  A read range is either a lone integer or
-the symbol $, in which case the read range consists of just that read (the last read in
-the database if $).  One may also give two positive integers separated by a dash to
-indicate a range of integers, where again a $ represents the index of the last read in
-the actively loaded db.  For example, 1 3-5 $ displays reads 1, 3, 4, 5, and the last
-read in the active db.  As another example, 1-$ displays every read in the active db
-(the default).
+displayed.  Otherwise the input file or the list of supplied integer ranges give the
+ordinal positions in the actively loaded portion of the db.  In the case of a file, it
+should simply contain a read index, one per line.  In the other case, a read range is
+either a lone integer or the symbol $, in which case the read range consists of just
+that read (the last read in the database if $).  One may also give two positive
+integers separated by a dash to indicate a range of integers, where again a $
+represents the index of the last read in the actively loaded db.  For example,
+1 3-5 $ displays reads 1, 3, 4, 5, and the last read in the active db.  As another
+example, 1-$ displays every read in the active db (the default).
 
 By default a .fasta file of the read sequences is displayed.  If the -q option is
 set, then the QV streams are also displayed in a non-standard modification of the
-fasta format.  If the -Q option is set, then a .quiva file of just the relevant
-QV entries is displayed.
+fasta format.  If the -n option is set then the DNA sequence is *not* displayed.
+If the -Q option is set, then a .quiva style entry is displayed (the -n and -m
+options must not be set in this instance).
 
-If the -d option is set then the .dust track intervals are also displayed in an
-additional header line and the low complexity bases within a sequence are displayed in
-the case opposite that used for all the other bases.  By default the output sequences
-are in lower case and 80 chars per line.  The -U option specifies upper case should be
-used, and the characters per line, or line width, can be set to any positive value
-with the -w option.
+If one or more masks supplied set with the -m option then the track intervals are also
+displayed in an additional header line and the bases within an interval are displayed
+in the case opposite that used for all the other bases.  By default the output
+sequences are in lower case and 80 chars per line.  The -U option specifies upper
+case should be used, and the characters per line, or line width, can be set to any
+positive value with the -w option.
 
 The .fasta or .quiva files that are output can be converted into a DB by fasta2DB
-and quiva2DB (if the -d option is not set), providing a simple way to make a DB of a
+and quiva2DB (if no -m options are given), providing a simple way to make a DB of a
 subset of the reads for testing purposes.
 
-11. DBstats [-a] [-x<int>] [-b<int(1000)] <path:db|dam>
+11. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 
-Show overview statistics for all the reads in the data base <path>.db or <path>.dam
-that are not shorter than the length given by the -x option (if given).   A histogram
-of read lengths is also included where the bucket size can be controlled with the -b
-option.  Normally, if several reads are all from the same well (insert), then only
-the longest read from the well is reported in the statistics.  If the -a flag is set
-then all reads are reported.
+Show overview statistics for all the reads in the trimmed data base <path>.db or
+<path>.dam, including a histogram of read lengths where the bucket size is set
+with the -b option (default 1000).  If the -u option is given then the untrimmed
+database is summarized.  If the -n option is given then the histogran of read lengths
+is not displayed.  Any track such as a "dust" track that gives a seried of
+intervals along the read can be specified with the -m option in which case a summary
+and a histogram of the interval lengths is displayed.
 
 12. DBrm <path:db|dam> ...
 
@@ -364,63 +368,72 @@ Example:
 
      A small complete example of most of the commands above. 
 
-> simulator 1.0 >G.fasta   //  Generate a 20x data sets of a 1Mb genome
-> fasta2DB G G.fasta       //  Create a compressed data base of the reads, G.db
-> rm G.fasta               //  Redundant, recreate any time with "DB2fasta G"
-> DBsplit -s11 G           //  Split G into 2 parts of size ~ 11MB each
-> DBdust G.1               //  Produce a "dust" track on each part (just to illustrate)
+> simulator 1.0 -c20. >G.fasta  //  Generate a 20x data sets of a 1Mb genome
+> fasta2DB G G.fasta            //  Create a compressed data base of the reads, G.db
+> rm G.fasta                    //  Redundant, recreate any time with "DB2fasta G"
+> DBsplit -s11 G                //  Split G into 2 parts of size ~ 11MB each
+> DBdust G.1                    //  Produce a "dust" track on each part
 > DBdust G.2
-> Catrack G dust           //  Create one track for the entire DB from the 2 sub-tracks
-> rm .G.*.dust.*           //  Clean up the sub-tracks
-> DBstats G                //  Take a look at the statistics for the database
+> Catrack G dust                //  Create one track for all of the DB
+> rm .G.*.dust.*                //  Clean up the sub-tracks
+> DBstats -mdust G              //  Take a look at the statistics for the database
 
-Statistics for all wells in the data set
+Statistics for all reads in the data set
 
-          1,862 reads       out of           1,862     0.0% loss
-     20,001,184 base pairs  out of      20,001,184     0.0% loss
+          1,836 reads        out of           1,836  (100.0%)
+     20,007,090 base pairs   out of      20,007,090  (100.0%)
 
-Base composition: 0.250(A) 0.250(C) 0.250(G) 0.250(T)
+         10,897 average read length
+          2,192 standard deviation
 
-         10,741 average read length
-          2,167 standard deviation
+  Base composition: 0.250(A) 0.250(C) 0.250(G) 0.250(T)
 
-Distribution of Read Lengths (Bin size = 1,000)
+  Distribution of Read Lengths (Bin size = 1,000)
 
-    Bin:      Count  % Reads  % Bases   Average
- 21,000:          2      0.1      0.2    21397
- 20,000:          0      0.1      0.2    21397
- 19,000:          2      0.2      0.4    20541
- 18,000:          1      0.3      0.5    20189
- 17,000:         10      0.8      1.4    18495
- 16,000:         15      1.6      2.6    17503
- 15,000:         30      3.2      4.9    16444
- 14,000:         81      7.6     10.8    15300
- 13,000:        140     15.1     20.2    14381
- 12,000:        202     25.9     32.8    13589
- 11,000:        286     41.3     49.2    12796
- 10,000:        345     59.8     67.3    12084
-  9,000:        351     78.7     84.0    11472
-  8,000:        248     92.0     94.6    11045
-  7,000:        106     97.7     98.6    10842
-  6,000:         40     99.8     99.9    10749
-  5,000:          3    100.0    100.0    10741
+        Bin:      Count  % Reads  % Bases     Average
+     22,000:          1      0.1      0.1       22654
+     21,000:          0      0.1      0.1       22654
+     20,000:          1      0.1      0.2       21355
+     19,000:          0      0.1      0.2       21355
+     18,000:          4      0.3      0.6       19489
+     17,000:          8      0.8      1.3       18374
+     16,000:         19      1.8      2.8       17231
+     15,000:         43      4.1      6.2       16253
+     14,000:         81      8.6     12.0       15341
+     13,000:        146     16.5     21.9       14428
+     12,000:        200     27.4     34.4       13664
+     11,000:        315     44.6     52.4       12824
+     10,000:        357     64.0     71.2       12126
+      9,000:        306     80.7     85.8       11586
+      8,000:        211     92.2     94.8       11208
+      7,000:         95     97.3     98.4       11017
+      6,000:         43     99.7     99.8       10914
+      5,000:          6    100.0    100.0       10897
 
-136 low-complexity intervals totaling 1,985 bases
+
+Statistics for dust-track
+
+  There are 158 intervals totaling 1,820 bases (0.0% of all data)
+
+  Distribution of dust intervals (Bin size = 1,000)
+
+        Bin:      Count  % Intervals  % Bases     Average
+          0:        158        100.0    100.0          11
 
 > ls -al
-total 8832576
-drwxr-xr-x  28 myersg  staff         952 Jun 24 15:46 .
-drwxr-xr-x  10 myersg  staff         340 Jun 16 15:45 ..
--rw-r--r--   1 myersg  staff     5000992 Jun 24 15:46 .G.bps
--rw-r--r--   1 myersg  staff        7460 Jun 24 15:46 .G.dust.anno
--rw-r--r--   1 myersg  staff        1088 Jun 24 15:46 .G.dust.data
--rw-r--r--   1 myersg  staff       59696 Jun 24 15:46 .G.idx
--rw-r--r--   1 myersg  staff         162 Jun 24 13:03 G.db
+total 66518744
+drwxr-xr-x+ 177 myersg  staff        6018 Mar  2 13:28 .
+drwxr-xr-x+  20 myersg  staff         680 Feb 26 19:52 ..
+-rw-r--r--+   1 myersg  staff     5002464 Mar  2 13:28 .G.bps
+-rw-r--r--+   1 myersg  staff       14704 Mar  2 13:28 .G.dust.anno
+-rw-r--r--+   1 myersg  staff        1264 Mar  2 13:28 .G.dust.data
+-rw-r--r--+   1 myersg  staff       73552 Mar  2 13:28 .G.idx
+-rw-r--r--+   1 myersg  staff         162 Mar  2 13:28 G.db
 > cat G.db
 files =         1
-       1862 G Sim
+       1836 G Sim
 blocks =         2
 size =        11 cutoff =         0 all = 0
          0         0
-      1024      1024
-      1862      1862
+      1011      1011
+      1836      1836

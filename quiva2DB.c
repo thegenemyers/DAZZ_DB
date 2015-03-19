@@ -123,10 +123,10 @@ int main(int argc, char *argv[])
     if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
       SYSTEM_ERROR
 
-    reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.oreads,"Allocating DB index");
+    reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
     if (reads == NULL)
       exit (1);
-    if (fread(reads,sizeof(HITS_READ),db.oreads,indx) != (size_t) (db.oreads))
+    if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
       SYSTEM_ERROR
 
     { int   first, last;
@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);
-  fwrite(reads,sizeof(HITS_READ),db.oreads,indx);
+  fwrite(reads,sizeof(HITS_READ),db.ureads,indx);
 
   fclose(istub);
   fclose(indx);

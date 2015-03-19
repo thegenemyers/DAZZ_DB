@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
   FILE  *bases, *indx, *hdrs;
 
   HITS_DB db;
-  int     oreads;
+  int     ureads;
   int64   boff, hoff;
 
   int     VERBOSE;
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
   //    ostub  = new image of db file (will overwrite old image at end)
   //    bases  = .bps file positioned for appending
   //    indx   = .idx file positioned for appending
-  //    oreads = # of reads currently in db
+  //    ureads = # of reads currently in db
   //    boff   = offset in .bps at which to place next sequence
   //    hoff
 
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
 
   fwrite(&db,sizeof(HITS_DB),1,indx);
 
-  oreads  = 0;
+  ureads  = 0;
   boff    = 0;
   hoff    = 0;
 
@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
                       read[i++] = (char) x;
                     }
                   prec.rlen = plen = i-pbeg;
-                  oreads += 1;
+                  ureads += 1;
                   totlen += plen;
                   if (plen > maxlen)
                     maxlen = plen;
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
               hoff += hlen;
             }
 
-          fprintf(ostub,DB_FDATA,oreads,core,core);
+          fprintf(ostub,DB_FDATA,ureads,core,core);
 
           free(core);
           fclose(input);
@@ -313,8 +313,8 @@ int main(int argc, char *argv[])
 
     //  Update relevant fields in db record
 
-    db.oreads = oreads;
-    db.breads = oreads;
+    db.ureads = ureads;
+    db.treads = ureads;
     for (c = 0; c < 4; c++)
       db.freq[c] = (float) ((1.*count[c])/totlen);
     db.totlen = totlen;
