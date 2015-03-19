@@ -64,7 +64,7 @@
 
 static char *Usage[] =
     { "[-unqUQ] [-w<int(80)>] [-m<track>]+",
-      "         <path:db|dam> [ <input:FILE> | <reads:range> ... ]"
+      "         <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
 #define LAST_READ_SYMBOL  '$'
