@@ -121,10 +121,6 @@ int main(int argc, char *argv[])
   status = Open_DB(argv[1],&db);
   if (status < 0)
     exit (1);
-  if (status == 1)
-    { ALL    = 1;
-      CUTOFF = 0;
-    }
   if (db.part > 0)
     { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[1]);
       exit (1);
