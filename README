@@ -191,16 +191,17 @@ a command such as DBshow.
 All programs add suffixes (e.g. .db) as needed.  The commands of the database library
 are currently as follows:
 
-1. fasta2DB [-v] <path:db> <input:fasta> ...
+1. fasta2DB [-v] <path:db> ( -f<file> | <input:fasta> ... )
 
 Builds an initial data base, or adds to an existing database, the list of .fasta files
-following the database name argument.  A given .fasta file can only be added once to
-the DB (this is checked by the command).  The .fasta headers must be in the "Pacbio"
-format (i.e. the output of the Pacbio tools or our dextract program) and the well,
-pulse interval, and read quality are extracted from the header and kept with each read
-record.  If the files are being added to an existing database, and the partition
-settings of the DB have already been set (see DBsplit below), then the partitioning of
-the database is updated to include the new data.
+following the database name argument, or if the -f option is used, the list of .fasta
+files in <file>.  A given .fasta file can only be added once to the DB (this is checked
+by the command).  The .fasta headers must be in the "Pacbio" format (i.e. the output
+of the Pacbio tools or our dextract program) and the well, pulse interval, and read
+quality are extracted from the header and kept with each read record.  If the files
+are being added to an existing database, and the partition settings of the DB have
+already been set (see DBsplit below), then the partitioning of the database is updated
+to include the new data.
 
 2. DB2fasta [-vU] [-w<int(80)>] <path:db>
 
@@ -212,14 +213,15 @@ By default the output sequences are in lower case and 80 chars per line.  The -U
 specifies upper case should be used, and the characters per line, or line width, can be
 set to any positive value with the -w option.
 
-3. quiva2DB [-vl] <path:db> <input:quiva> ...
+3. quiva2DB [-vl] <path:db> ( -f<file> | <input:quiva> ... )
 
-Adds the given .quiva files to an existing DB "path".  The input files must be added in
-the same order as the .fasta files were and have the same root names, e.g. FOO.fasta
-and FOO.quiva.  The files can be added incrementally but must be added in the same
-order as the .fasta files.  This is enforced by the program.  With the -l option set
-the compression scheme is a bit lossy to get more compression (see the description of
-dexqv in the DEXTRACTOR module).
+Adds the given .quiva files on the command line or in the file specified by the
+-f option to an existing DB "path".  The input files must be added in the same order
+as the .fasta files were and have the same root names, e.g. FOO.fasta and FOO.quiva.
+The files can be added incrementally but must be added in the same order as the .fasta
+files.  This is enforced by the program.  With the -l option set the compression
+scheme is a bit lossy to get more compression (see the description of dexqv in the
+DEXTRACTOR module).
 
 4. DB2quiva [-vU] <path:db>
 
@@ -231,12 +233,13 @@ By .fastq convention each QV vector is output as a line without new-lines, and b
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
-5. fasta2DAM [-v] <path:dam> <input:fasta> ...
+5. fasta2DAM [-v] <path:dam> ( -f<file> | <input:fasta> ... )
 
 Builds a map DB or DAM from the list of .fasta files following the map database name
-argument.  Any .fasta entry that has a run of N's in it will be split into separate
-"contig" entries and the interval of the contig in the original entry recorded.  The
-header for each .fasta entry is saved with the contigs created from it.
+argument, or if the -f option is used, the list of .fasta files in <file>.  Any .fasta
+entry that has a run of N's in it will be split into separate "contig" entries and
+the interval of the contig in the original entry recorded.  The header for each .fasta
+entry is saved with the contigs created from it.
 
 6. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
 
@@ -308,10 +311,10 @@ example, 1-$ displays every read in the active db (the default).
 By default a .fasta file of the read sequences is displayed.  If the -q option is
 set, then the QV streams are also displayed in a non-standard modification of the
 fasta format.  If the -n option is set then the DNA sequence is *not* displayed.
-If the -Q option is set, then a .quiva style entry is displayed (the -n and -m
-options must not be set in this instance).
+If the -Q option is set then a .quiva file is displayed  and in this case the -n
+and -m options mayt not be set (and the -q and -w options have no effect).
 
-If one or more masks supplied set with the -m option then the track intervals are also
+If one or more masks are set with the -m option then the track intervals are also
 displayed in an additional header line and the bases within an interval are displayed
 in the case opposite that used for all the other bases.  By default the output
 sequences are in lower case and 80 chars per line.  The -U option specifies upper
@@ -319,8 +322,8 @@ case should be used, and the characters per line, or line width, can be set to a
 positive value with the -w option.
 
 The .fasta or .quiva files that are output can be converted into a DB by fasta2DB
-and quiva2DB (if no -m options are given), providing a simple way to make a DB of a
-subset of the reads for testing purposes.
+and quiva2DB (if the -q and -n options are not set and no -m options are set),
+giving one a simple way to make a DB of a subset of the reads for testing purposes.
 
 11. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 

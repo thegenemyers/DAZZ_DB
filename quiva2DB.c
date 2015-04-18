@@ -65,7 +65,60 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-vl] <path:string> <input:quiva> ...";
+static char *Usage = "[-vl] <path:string> ( -f<file> | <input:quiva> ... )";
+
+typedef struct
+  { int    argc;
+    char **argv;
+    FILE  *input;
+    int    count;
+    char  *name;
+  } File_Iterator;
+
+File_Iterator *init_file_iterator(int argc, char **argv, FILE *input, int first)
+{ File_Iterator *it;
+
+  it = Malloc(sizeof(File_Iterator),"Allocating file iterator");
+  it->argc  = argc;
+  it->argv  = argv;
+  it->input = input;
+  if (input == NULL)
+    it->count = first;
+  else
+    { it->count = 1;
+      rewind(input);
+    }
+  return (it);
+}
+
+int next_file(File_Iterator *it)
+{ static char nbuffer[MAX_NAME+8];
+
+  if (it->input == NULL)
+    { if (it->count >= it->argc)
+        return (0);
+      it->name = it->argv[it->count++];
+    }
+  else
+    { char *eol;
+
+      if (fgets(nbuffer,MAX_NAME+8,it->input) == NULL)
+        { if (feof(it->input))
+            return (0);
+          SYSTEM_ERROR;
+        }
+      if ((eol = index(nbuffer,'\n')) == NULL)
+        { fprintf(stderr,"%s: Line %d in file list is longer than %d chars!\n",
+                         Prog_Name,it->count,MAX_NAME+7);
+          it->name = NULL;
+        }
+      *eol = '\0';
+      it->count += 1;
+      it->name  = nbuffer;
+    }
+  return (1);
+}
+
 
 int main(int argc, char *argv[])
 { FILE      *istub, *quiva, *indx;
@@ -76,6 +129,7 @@ int main(int argc, char *argv[])
 
   int        VERBOSE;
   int        LOSSY;
+  FILE      *IFILE;
 
   //  Process command line
 
@@ -84,10 +138,23 @@ int main(int argc, char *argv[])
 
     ARG_INIT("quiva2DB")
 
+    IFILE = NULL;
+
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
-        { ARG_FLAGS("vl") }
+        switch (argv[i][1])
+        { default:
+            ARG_FLAGS("vl")
+            break;
+          case 'f':
+            IFILE = fopen(argv[i]+2,"r");
+            if (IFILE == NULL)
+              { fprintf(stderr,"%s: Cannot open file of inputs '%s'\n",Prog_Name,argv[i]+2);
+                exit (1);
+              }
+            break;
+        }
       else
         argv[j++] = argv[i];
     argc = j;
@@ -95,7 +162,7 @@ int main(int argc, char *argv[])
     VERBOSE = flags['v'];
     LOSSY   = flags['l'];
 
-    if (argc <= 2)
+    if ((IFILE == NULL && argc <= 2) || (IFILE != NULL && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         exit (1);
       }
@@ -107,9 +174,10 @@ int main(int argc, char *argv[])
   //    Record in coff the current size of the .qvs file in case an error occurs and it needs
   //    to be truncated back to its size at the start.
 
-  { int   i, c;
-    char *pwd, *root;
-    int   nfiles;
+  { int            i;
+    char          *pwd, *root;
+    int            nfiles;
+    File_Iterator *ng;
 
     root   = Root(argv[1],".db");
     pwd    = PathTo(argv[1]);
@@ -133,8 +201,14 @@ int main(int argc, char *argv[])
       char  prolog[MAX_NAME], fname[MAX_NAME];
       char *core;
 
-      c    = 2;
-      core = Root(argv[c],".quiva");
+      ng = init_file_iterator(argc,argv,IFILE,2);
+      if ( ! next_file(ng))
+        { fprintf(stderr,"%s: file list is empty!\n",Prog_Name);
+          exit (1);
+        }
+      if (ng->name == NULL) exit (1);
+
+      core = Root(ng->name,".quiva");
 
       if (fscanf(istub,DB_NFILE,&nfiles) != 1)
         SYSTEM_ERROR
@@ -161,8 +235,10 @@ int main(int argc, char *argv[])
           exit (1);
         }
 
-      for (c = 3; c < argc; c++)
-        { core = Root(argv[c],".quiva");
+      while (next_file(ng))
+        { if (ng->name == NULL)
+            exit (1);
+          core = Root(ng->name,".quiva");
           if (++i >= nfiles)
             { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
               exit (1);
@@ -200,8 +276,9 @@ int main(int argc, char *argv[])
   //    preceding it).  Ensure that the # of .quiva entries matches the # of .fasta entries
   //    in each added file.
 
-  { int i, c;
-    int last, cur;
+  { int            i;
+    int            last, cur;
+    File_Iterator *ng;
 
     //  For each .quiva file do:
 
@@ -214,8 +291,9 @@ int main(int argc, char *argv[])
       if (fscanf(istub,"  %9d %*s %*s\n",&last) != 1)
         SYSTEM_ERROR
 
+    ng  = init_file_iterator(argc,argv,IFILE,2);
     cur = last;
-    for (c = 2; c < argc; c++)
+    while (next_file(ng))
       { FILE     *input;
         int64     qpos;
         char     *pwd, *root;
@@ -223,8 +301,8 @@ int main(int argc, char *argv[])
 
         //  Open next .quiva file and create its compression scheme
 
-        pwd  = PathTo(argv[c]);
-        root = Root(argv[c],".quiva");
+        pwd  = PathTo(ng->name);
+        root = Root(ng->name,".quiva");
         if ((input = Fopen(Catenate(pwd,"/",root,".quiva"),"r")) == NULL)
           goto error;
 

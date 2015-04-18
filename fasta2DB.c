@@ -72,7 +72,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] <path:string> <input:fasta> ...";
+static char *Usage = "[-v] <path:string> ( -f<file> | <input:fasta> ... )";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -93,6 +93,59 @@ static char number[128] =
       0, 0, 0, 0, 0, 0, 0, 0,
     };
 
+typedef struct
+  { int    argc;
+    char **argv;
+    FILE  *input;
+    int    count;
+    char  *name;
+  } File_Iterator;
+
+File_Iterator *init_file_iterator(int argc, char **argv, FILE *input, int first)
+{ File_Iterator *it;
+
+  it = Malloc(sizeof(File_Iterator),"Allocating file iterator");
+  it->argc  = argc;
+  it->argv  = argv;
+  it->input = input;
+  if (input == NULL)
+    it->count = first;
+  else
+    { it->count = 1;
+      rewind(input);
+    }
+  return (it);
+}
+
+int next_file(File_Iterator *it)
+{ static char nbuffer[MAX_NAME+8];
+
+  if (it->input == NULL)
+    { if (it->count >= it->argc)
+        return (0);
+      it->name = it->argv[it->count++];
+    }
+  else
+    { char *eol;
+
+      if (fgets(nbuffer,MAX_NAME+8,it->input) == NULL)
+        { if (feof(it->input))
+            return (0);
+          SYSTEM_ERROR;
+        }
+      if ((eol = index(nbuffer,'\n')) == NULL)
+        { fprintf(stderr,"%s: Line %d in file list is longer than %d chars!\n",
+                         Prog_Name,it->count,MAX_NAME+7);
+          it->name = NULL;
+        }
+      *eol = '\0';
+      it->count += 1;
+      it->name  = nbuffer;
+    }
+  return (1);
+}
+
+
 int main(int argc, char *argv[])
 { FILE  *istub, *ostub;
   char  *dbname;
@@ -108,26 +161,40 @@ int main(int argc, char *argv[])
   int     ureads;
   int64   offset;
 
+  FILE   *IFILE;
   int     VERBOSE;
 
-  //   Usage: <path:string> <input:fasta> ...
+  //   Usage: [-v] <path:string> ( -f<file> | <input:fasta> ... )
 
   { int   i, j, k;
     int   flags[128];
 
     ARG_INIT("fasta2DB")
 
+    IFILE = NULL;
+
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
-        { ARG_FLAGS("v") }
+        switch (argv[i][1])
+        { default:
+            ARG_FLAGS("v")
+            break;
+          case 'f':
+            IFILE = fopen(argv[i]+2,"r");
+            if (IFILE == NULL)
+              { fprintf(stderr,"%s: Cannot open file of inputs '%s'\n",Prog_Name,argv[i]+2);
+                exit (1);
+              }
+            break;
+        }
       else
         argv[j++] = argv[i];
     argc = j;
 
     VERBOSE = flags['v'];
 
-    if (argc <= 2)
+    if ((IFILE == NULL && argc <= 2) || (IFILE != NULL && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         exit (1);
       }
@@ -212,12 +279,13 @@ int main(int argc, char *argv[])
       }
   }
 
-  { int        maxlen;
-    int64      totlen, count[4];
-    int        pmax, rmax;
-    HITS_READ *prec;
-    char      *read;
-    int        c;
+  { int            maxlen;
+    int64          totlen, count[4];
+    int            pmax, rmax;
+    HITS_READ     *prec;
+    char          *read;
+    int            c;
+    File_Iterator *ng;
 
     //  Buffer for reads all in the same well
 
@@ -240,19 +308,23 @@ int main(int argc, char *argv[])
 
     //  For each new .fasta file do:
 
-    for (c = 2; c < argc; c++)
+    ng = init_file_iterator(argc,argv,IFILE,2);
+    while (next_file(ng))
       { FILE *input;
         char *path, *core, *prolog;
         int   nline, eof, rlen, pcnt;
         int   pwell;
 
+        if (ng->name == NULL) goto error;
+
         //  Open it: <path>/<core>.fasta, check that core is not too long,
         //           and checking that it is not already in flist.
 
-        path  = PathTo(argv[c]);
-        core  = Root(argv[c],".fasta");
+        path  = PathTo(ng->name);
+        core  = Root(ng->name,".fasta");
         if ((input = Fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
           goto error;
+        free(path);
         if (strlen(core) >= MAX_NAME)
           { fprintf(stderr,"%s: File name over %d chars: '%.200s'\n",
                            Prog_Name,MAX_NAME,core);
@@ -267,7 +339,6 @@ int main(int argc, char *argv[])
                                Prog_Name,core,Root(argv[1],".db"));
                 goto error;
               }
-          free(path);
         }
 
         //  Get the header of the first line.  If the file is empty skip.

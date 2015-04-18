@@ -501,8 +501,6 @@ int main(int argc, char *argv[])
 
                 for (k = 0; k < 5; k++)
                   printf("%s\n",entry[k]);
-                printf("+\n");
-                printf("%s\n",read);
               }
             else
               { if (DOQVS)
