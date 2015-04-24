@@ -263,6 +263,7 @@ int main(int argc, char *argv[])
       coff = ftello(quiva);
 
       free(core);
+      free(ng);
     }
 
     free(root);
@@ -344,6 +345,8 @@ int main(int argc, char *argv[])
         free(root);
         free(pwd);
     }
+
+    free(ng);
   }
 
   //  Write the db record and read index into .idx and clean up

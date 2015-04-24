@@ -152,10 +152,13 @@ int main(int argc, char *argv[])
   char  *root, *pwd;
 
   FILE  *bases, *indx, *hdrs;
+  int64  boff, hoff;
+
+  int    ifiles, ofiles;
+  char **flist;
 
   HITS_DB db;
   int     ureads;
-  int64   boff, hoff;
 
   int     VERBOSE;
   FILE   *IFILE;
@@ -204,7 +207,10 @@ int main(int argc, char *argv[])
   //    indx   = .idx file positioned for appending
   //    ureads = # of reads currently in db
   //    boff   = offset in .bps at which to place next sequence
-  //    hoff
+  //    hoff   = offset in .hdr at which to place next header prefix
+  //    ifiles = # of .fasta files to add
+  //    ofiles = # of .fasta files added so far
+  //    flist  = [0..ifiles] list of file names (root only) added to db so far
 
   root   = Root(argv[1],".dam");
   pwd    = PathTo(argv[1]);
@@ -212,12 +218,26 @@ int main(int argc, char *argv[])
   if (dbname == NULL)
     exit (1);
 
+  if (IFILE == NULL)
+    ifiles = argc-2;
+  else
+    { File_Iterator *ng;
+
+      ifiles = 0;
+      ng = init_file_iterator(argc,argv,IFILE,2);
+      while (next_file(ng))
+        ifiles += 1;
+      free(ng);
+    }
+  ofiles = 0;
+
   bases = Fopen(Catenate(pwd,PATHSEP,root,".bps"),"w");
   indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"w");
   hdrs  = Fopen(Catenate(pwd,PATHSEP,root,".hdr"),"w");
   if (bases == NULL || indx == NULL || hdrs == NULL)
     exit (1);
 
+  flist  = (char **) Malloc(sizeof(char *)*ifiles,"Allocating file list");
   fwrite(&db,sizeof(HITS_DB),1,indx);
 
   ureads  = 0;
@@ -269,6 +289,16 @@ int main(int argc, char *argv[])
           goto error;
         free(path);
 
+        { int j;
+
+          for (j = 0; j < ofiles; j++)
+            if (strcmp(core,flist[j]) == 0)
+              { fprintf(stderr,"%s: File %s.fasta is already in database %s.db\n",
+                               Prog_Name,core,Root(argv[1],".db"));
+                goto error;
+              }
+        }
+
         //  Get the header of the first line.  If the file is empty skip.
 
         rlen  = 0;
@@ -277,6 +307,7 @@ int main(int argc, char *argv[])
         if (eof || strlen(read) < 1)
           { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
             fclose(input);
+            free(core);
             continue;
           }
 
@@ -286,6 +317,7 @@ int main(int argc, char *argv[])
           { fprintf(stderr,"Adding '%s' ...\n",core);
             fflush(stderr);
           }
+        flist[ofiles++] = core;
 
         // Check that the first line has PACBIO format, and record prolog in 'prolog'.
 
@@ -377,7 +409,6 @@ int main(int argc, char *argv[])
 
           fprintf(ostub,DB_FDATA,ureads,core,core);
 
-          free(core);
           fclose(input);
         }
       }

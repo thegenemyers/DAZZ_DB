@@ -223,9 +223,19 @@ int main(int argc, char *argv[])
     if (dbname == NULL)
       exit (1);
 
-    istub  = fopen(dbname,"r");
-    ifiles = argc-2;
+    if (IFILE == NULL)
+      ifiles = argc-2;
+    else
+      { File_Iterator *ng;
 
+        ifiles = 0;
+        ng = init_file_iterator(argc,argv,IFILE,2);
+        while (next_file(ng))
+          ifiles += 1;
+        free(ng);
+      }
+
+    istub = fopen(dbname,"r");
     if (istub == NULL)
       { ofiles = 0;
 
@@ -350,6 +360,7 @@ int main(int argc, char *argv[])
         if (eof || strlen(read) < 1)
           { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
             fclose(input);
+            free(core);
             continue;
           }
 
@@ -509,10 +520,10 @@ int main(int argc, char *argv[])
           fwrite(prec,sizeof(HITS_READ),pcnt,indx);
 
           fprintf(ostub,DB_FDATA,ureads,core,prolog);
-
-	  free(prolog);
-          fclose(input);
         }
+
+        free(prolog);
+        fclose(input);
       }
 
     //  Finished loading all sequences: update relevant fields in db record
