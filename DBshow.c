@@ -67,7 +67,54 @@ static char *Usage[] =
       "         <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
-#define LAST_READ_SYMBOL  '$'
+#define LAST_READ_SYMBOL   '$'
+#define MAX_BUFFER       10001
+
+typedef struct
+  { FILE  *input;
+    int    lineno;
+    int    read;
+    int    beg;
+    int    end;
+  } File_Iterator;
+
+File_Iterator *init_file_iterator(FILE *input)
+{ File_Iterator *it;
+
+  it = Malloc(sizeof(File_Iterator),"Allocating file iterator");
+  it->input = input;
+  it->lineno = 1;
+  rewind(input);
+  return (it);
+}
+
+int next_read(File_Iterator *it)
+{ static char nbuffer[MAX_BUFFER];
+
+  char *eol;
+  int   x;
+
+  if (fgets(nbuffer,MAX_BUFFER,it->input) == NULL)
+    { if (feof(it->input))
+        return (1);
+      SYSTEM_ERROR;
+    }
+  if ((eol = index(nbuffer,'\n')) == NULL)
+    { fprintf(stderr,"%s: Line %d in read list is longer than %d chars!\n",
+                     Prog_Name,it->lineno,MAX_BUFFER-1);
+      return (1);
+    }
+  *eol = '\0';
+  x = sscanf(nbuffer," %d %d %d",&(it->read),&(it->beg),&(it->end));
+  if (x == 1)
+    it->beg = -1;
+  else if (x != 3)
+    { fprintf(stderr,"%s: Line %d of read list is improperly formatted\n",Prog_Name,it->lineno);
+      return (1);
+    }
+  it->lineno += 1;
+  return (0);
+}
 
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
@@ -77,8 +124,10 @@ int main(int argc, char *argv[])
   char      **flist = NULL;
   int        *findx = NULL;
 
-  int         reps, *pts;
-  int         input_pts;
+  int            reps, *pts;
+  int            input_pts;
+  File_Iterator *iter;
+  FILE          *input;
 
   int         TRIM, UPPER;
   int         DOSEQ, DOQVS, QUIVA, DAM;
@@ -176,7 +225,11 @@ int main(int argc, char *argv[])
   //  Load QVs if requested
 
   if (DOQVS)
-    Load_QVs(db);
+    { if (Load_QVs(db) < 0)
+        { fprintf(stderr,"%s: QVs requested, but no .qvs for data base\n",Prog_Name);
+          exit (1);
+        }
+    }
 
   //  Check tracks and load tracks for untrimmed DB
 
@@ -308,37 +361,12 @@ int main(int argc, char *argv[])
     }
 
   if (input_pts)
-    { int v, x;
-      FILE *input;
-
-      input = Fopen(argv[2],"r");
+    { input = Fopen(argv[2],"r");
       if (input == NULL)
         exit (1);
 
-      reps = 0;
-      while ((v = fscanf(input," %d",&x)) != EOF)
-        if (v == 0)
-          { fprintf(stderr,"%s: %d'th item of input file %s is not an integer\n",
-                           Prog_Name,reps+1,argv[2]);
-            exit (1);
-          }
-        else
-          reps += 1;
-
-      reps *= 2;
-      pts   = (int *) Malloc(sizeof(int)*reps,"Allocating read parameters");
-      if (pts == NULL)
-        exit (1);
-
-      rewind(input);
-      for (v = 0; v < reps; v += 2)
-        { fscanf(input," %d",&x);
-          pts[v] = pts[v+1] = x;
-        }
-
-      fclose(input);
+      iter = init_file_iterator(input);
     }
-
   else
     { pts  = (int *) Malloc(sizeof(int)*2*(argc-1),"Allocating read parameters");
       if (pts == NULL)
@@ -401,7 +429,7 @@ int main(int argc, char *argv[])
     HITS_TRACK *first;
     char       *read, **entry;
     int         c, b, e, i;
-    int         hilight;
+    int         hilight, substr;
     int         map;
     int       (*iscase)(int);
 
@@ -424,15 +452,32 @@ int main(int argc, char *argv[])
         iscase  = isupper;
       }
 
-    map   = 0;
-    reads = db->reads;
-    for (c = 0; c < reps; c += 2)
-      { b = pts[c]-1;
-        e = pts[c+1];
-        if (e > db->nreads)
-          e = db->nreads;
+    map    = 0;
+    reads  = db->reads;
+    substr = 0;
+
+    c = 0;
+    while (1)
+      { if (input_pts)
+          { if (next_read(iter))
+              break;
+            e = iter->read;
+            b = e-1;
+            substr = (iter->beg >= 0);
+          }
+        else
+          { if (c >= reps)
+              break;
+            b = pts[c]-1;
+            e = pts[c+1];
+            if (e > db->nreads)
+              e = db->nreads;
+            c += 2;
+          }
+
         for (i = b; i < e; i++)
           { int         len;
+            int         fst, lst;
             int         flags, qv;
             HITS_READ  *r;
             HITS_TRACK *track;
@@ -496,44 +541,60 @@ int main(int argc, char *argv[])
                   }
               }
 
+            if (substr)
+              { fst = iter->beg;
+                lst = iter->end;
+              }
+            else
+              { fst = 0;
+                lst = len;
+              }
+
             if (QUIVA)
               { int k;
 
                 for (k = 0; k < 5; k++)
-                  printf("%s\n",entry[k]);
+                  printf("%.*s\n",lst-fst,entry[k]+fst);
               }
             else
               { if (DOQVS)
                   { int j, k;
 
                     printf("\n");
-                    for (j = 0; j+WIDTH < len; j += WIDTH)
+                    for (j = fst; j+WIDTH < lst; j += WIDTH)
                       { if (DOSEQ)
                           printf("%.*s\n",WIDTH,read+j);
                         for (k = 0; k < 5; k++)
                           printf("%.*s\n",WIDTH,entry[k]+j);
                         printf("\n");
                       }
-                    if (j < len)
+                    if (j < lst)
                       { if (DOSEQ)
-                          printf("%s\n",read+j);
+                          printf("%.*s\n",lst-j,read+j);
                         for (k = 0; k < 5; k++)
-                          printf("%.*s\n",len-j,entry[k]+j);
+                          printf("%.*s\n",lst-j,entry[k]+j);
                         printf("\n");
                       }
                   }
                 else if (DOSEQ)
                   { int j;
     
-                    for (j = 0; j+WIDTH < len; j += WIDTH)
+                    for (j = fst; j+WIDTH < lst; j += WIDTH)
                       printf("%.*s\n",WIDTH,read+j);
-                    if (j < len)
-                      printf("%s\n",read+j);
+                    if (j < lst)
+                      printf("%.*s\n",lst-j,read+j);
                   }
               }
           }
       }
   }
+
+  if (input_pts)
+    { fclose(input);
+      free(iter);
+    }
+  else
+    free(pts);
 
   if (DAM)
     fclose(hdrs);
@@ -545,7 +606,6 @@ int main(int argc, char *argv[])
       free(flist);
       free(findx-1);
     }
-  free(pts);
   Close_DB(db);
 
   exit (0);

@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
 
   for (i = 1; i < argc; i++)
-    if (List_DB_Files(argv[i],HANDLER))
+    if (List_DB_Files(argv[i],HANDLER) < 0)
       fprintf(stderr,"%s: Could not list database %s\n",Prog_Name,argv[i]);
 
   exit (0);
