@@ -1,4 +1,4 @@
-CFLAGS = -O3 -Wall -Wextra -fno-strict-aliasing
+CFLAGS = -O3 -Wall -Wextra -fno-strict-aliasing -Wno-unused-result
 
 ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator \
       fasta2DAM DAM2fasta
