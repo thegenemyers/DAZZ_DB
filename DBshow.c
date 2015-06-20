@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
   int            reps, *pts;
   int            input_pts;
-  File_Iterator *iter;
+  File_Iterator *iter = 0;
   FILE          *input;
 
   int         TRIM, UPPER;
