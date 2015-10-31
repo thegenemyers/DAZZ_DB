@@ -56,7 +56,7 @@ from shorts to ints, and on December 31, the "beg" and "end" fields became "fpul
   Unfortunately, the .dust track formats also changed on Dec.31.2014 and Jan.1.2015.  To
 upgrade said use DUSTupgrade.Jan.1.2015.  This program takes a DB, say X as an argument
 and produces .X.next.anno and .X.next.data which you should then replace .X.dust.* with.
-Of course, it may, if the DB is not too big, be easier and simply to just rerun DBdust.
+Of course, it may, if the DB is not too big, be easier and simpler to just rerun DBdust.
 
   Developers should also note carefully that the calling conventions to Open_DB have
 changed and there are new utility routines Number_Digits and Check_Track.
@@ -325,7 +325,44 @@ The .fasta or .quiva files that are output can be converted into a DB by fasta2D
 and quiva2DB (if the -q and -n options are not set and no -m options are set),
 giving one a simple way to make a DB of a subset of the reads for testing purposes.
 
-11. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
+12. DBdump [-rhsquU] [-m<track>]+
+                     <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
+
+Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
+which information to show about them including any mask tracks.  The difference is
+that the information is written in a very simple "1-code" ASCII format that makes it
+easy for one to read and parse the information for further use.  -r requests that each
+read number be displayed (useful if only a subset of reads is requested).  -h prints
+the header information which is the source file name, well #, and pulse range.
+-s requests the sequence be output, and -q requests that the 5 quiva sequences be
+output.
+
+The format is very simple.  Each requested piece of information occurs on a line.  The
+first character of every line is a "1-code" character that tells you what information
+to expect on the line.  The rest of the line contains information where each item is
+separated by a single blank space.  Strings are output as first an integer giving the
+length of the string, a blank space, and then the string terminated by a new-line.
+
+    R #        - read number
+    H # string - original file name string (header)
+    L # # #    - location: well, pulse start, pulse end
+    S # string - sequence string
+    d # string - Quiva deletion values (as an ASCII string)
+    c # string - Quiva deletion character string
+    i # string - Quiva insertion value string
+    m # string - Quiva merge value string
+    s # string - Quiva substitution value string
+    + X #      - Total amount of X (X = H or R or S)
+    @ X #      - Maximum amount of X (X = H or S)
+
+1-code lines that begin with + or @ are always the first lines in the output.  They
+give size information about what is contained in the output.  That is '+ X #' gives
+the number of reads (X=R), the total number of characters in all headers (X=H) or
+sequence (X=S).  And '@ X #' gives the maximum number of characters in any header
+(X=H) or sequence (X=S).  The size numbers for the Quiva strings are identical to
+that for the sequence as they are all of the same length for any given entry.
+
+12. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 
 Show overview statistics for all the reads in the trimmed data base <path>.db or
 <path>.dam, including a histogram of read lengths where the bucket size is set
@@ -335,13 +372,13 @@ is not displayed.  Any track such as a "dust" track that gives a seried of
 intervals along the read can be specified with the -m option in which case a summary
 and a histogram of the interval lengths is displayed.
 
-12. DBrm <path:db|dam> ...
+13. DBrm <path:db|dam> ...
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
 
-13. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
+14. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
                               [-m<int(10000)>]  [-s<int(2000)>]
                               [-x<int(4000)>]   [-e<double(.15)>]
                               [-M<file>]

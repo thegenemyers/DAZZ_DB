@@ -336,13 +336,12 @@ int main(int argc, char *argv[])
         { int i, x, n;
 
           while (!eof)
-            { int hlen, hline;
+            { int hlen;
 
               read[rlen] = '>';
               hlen = strlen(read+rlen);
               fwrite(read+rlen,1,hlen,hdrs);
 
-              hline = nline;
               rlen  = 0;
               while (1)
                 { eof = (fgets(read+rlen,MAX_NAME,input) == NULL);

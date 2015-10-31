@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 
     pwd   = PathTo(argv[1]);
     root  = Root(argv[1],".db");
-    size  = 8;
+    size  = 0;
 
     fname = Catenate(pwd,PATHSEP,root,".dust.anno");
     if ((afile = fopen(fname,"r+")) == NULL || db->part > 0)

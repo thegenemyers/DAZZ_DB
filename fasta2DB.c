@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 
           pwell = -1;
           while (!eof)
-            { int   beg, end, clen, hline;
+            { int   beg, end, clen;
               int   well, qv;
               char *find;
 
@@ -433,7 +433,6 @@ int main(int argc, char *argv[])
               else if (x == 3)
                 qv = 0;
 
-              hline = nline;
               rlen  = 0;
               while (1)
                 { eof = (fgets(read+rlen,MAX_NAME,input) == NULL);

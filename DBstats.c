@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
       }
   }
 
-  { int i, status;
+  { int i, status, kind;
 
     //  Open .db or .dam
 
@@ -128,11 +128,13 @@ int main(int argc, char *argv[])
     //  Check tracks and load tracks for untrimmed DB
 
     for (i = 0; i < MTOP; i++)
-      { status = Check_Track(db,MASK[i]);
+      { status = Check_Track(db,MASK[i],&kind);
         if (status == -2)
           fprintf(stderr,"%s: Warning: -m%s option given but no track found.\n",Prog_Name,MASK[i]);
         else if (status == -1)
           fprintf(stderr,"%s: Warning: %s track not sync'd with db.\n",Prog_Name,MASK[i]);
+        else if (kind != MASK_TRACK)
+          fprintf(stderr,"%s: Warning: %s track is not a mask track.\n",Prog_Name,MASK[i]);
         else if (status == 0)
           Load_Track(db,MASK[i]);
         else if (status == 1 && !TRIM)
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
         //  Load tracks for trimmed DB
 
         for (i = 0; i < MTOP; i++)
-          { status = Check_Track(db,MASK[i]);
+          { status = Check_Track(db,MASK[i],&kind);
             if (status < 0)
               continue;
             else if (status == 1)
