@@ -412,11 +412,13 @@ int main(int argc, char *argv[])
         }
     }
 
+  //  Scan to count the size of things
+
   { HITS_READ  *reads;
-    HITS_TRACK *first;
+    HITS_TRACK *first, *track;
     int         c, b, e, i, m;
     int         map, substr;
-    int64       noreads;
+    int64       noreads, nomasks;
     int64       seqmax, seqtot;
     int64       hdrmax, hdrtot;
     int64       trkmax[MTOP], trktot[MTOP];
@@ -429,6 +431,10 @@ int main(int argc, char *argv[])
     map    = 0;
     reads  = db->reads;
     substr = 0;
+
+    nomasks = 0;
+    for (track = first; track != NULL; track = track->next)
+      nomasks += 1;
 
     noreads = 0;
     seqmax = 0;
@@ -463,7 +469,6 @@ int main(int argc, char *argv[])
           { int         len, ten;
             int         fst, lst;
             HITS_READ  *r;
-            HITS_TRACK *track;
 
             r   = reads + i;
             len = r->rlen;
@@ -523,6 +528,7 @@ int main(int argc, char *argv[])
       }
 
     printf("+ R %lld\n",noreads);
+    printf("+ M %lld\n",nomasks);
     if (DOHDR)
       { printf("+ H %lld\n",hdrtot);
         printf("@ H %lld\n",hdrmax);
