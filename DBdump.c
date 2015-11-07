@@ -63,8 +63,8 @@
 #endif
 
 static char *Usage[] =
-    { "[-hqrsuU] [-m<track>]+",
-      "          <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
+    { "[-rhsq] [-uU] [-m<track>]+",
+      "              <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
 #define LAST_READ_SYMBOL   '$'
