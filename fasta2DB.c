@@ -72,7 +72,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] <path:string> ( -f<file> | <input:fasta> ... )";
+static char *Usage = "[-v] [-p<string>] <path:string> ( -f<file> | <input:fasta> ... )";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -162,6 +162,7 @@ int main(int argc, char *argv[])
   int64   offset;
 
   FILE   *IFILE;
+  char   *PNAME;
   int     VERBOSE;
 
   //   Usage: [-v] <path:string> ( -f<file> | <input:fasta> ... )
@@ -172,6 +173,7 @@ int main(int argc, char *argv[])
     ARG_INIT("fasta2DB")
 
     IFILE = NULL;
+    PNAME = NULL;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -186,6 +188,9 @@ int main(int argc, char *argv[])
               { fprintf(stderr,"%s: Cannot open file of inputs '%s'\n",Prog_Name,argv[i]+2);
                 exit (1);
               }
+            break;
+          case 'p':
+            PNAME = argv[i]+2;
             break;
         }
       else
@@ -390,7 +395,10 @@ int main(int argc, char *argv[])
           find = index(read+1,'/');
           if (find != NULL && sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv) >= 3)
             { *find = '\0';
-              prolog = Strdup(read+1,"Extracting prolog");
+              if (PNAME != NULL)
+                prolog = Strdup(PNAME,"Extracting prolog");
+              else
+                prolog = Strdup(read+1,"Extracting prolog");
               *find = '/';
               if (prolog == NULL) goto error;
             }
@@ -417,13 +425,16 @@ int main(int argc, char *argv[])
                                  core,nline);
                   goto error;
                 }
-              *find = '\0';
-              if (strcmp(read+(rlen+1),prolog) != 0)
-                { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line name inconsisten\n",
-                                 core,nline);
-                  goto error;
+              if (PNAME == NULL)
+                { *find = '\0';
+                  if (strcmp(read+(rlen+1),prolog) != 0)
+                    { fprintf(stderr,
+                              "File %s.fasta, Line %d: Pacbio header line name inconsistent\n",
+                              core,nline);
+                      goto error;
+                    }
+                  *find = '/';
                 }
-              *find = '/';
               x = sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv);
               if (x < 3)
                 { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
