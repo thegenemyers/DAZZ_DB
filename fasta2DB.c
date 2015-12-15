@@ -1,40 +1,3 @@
-/************************************************************************************\
-*                                                                                    *
-* Copyright (c) 2014, Dr. Eugene W. Myers (EWM). All rights reserved.                *
-*                                                                                    *
-* Redistribution and use in source and binary forms, with or without modification,   *
-* are permitted provided that the following conditions are met:                      *
-*                                                                                    *
-*  · Redistributions of source code must retain the above copyright notice, this     *
-*    list of conditions and the following disclaimer.                                *
-*                                                                                    *
-*  · Redistributions in binary form must reproduce the above copyright notice, this  *
-*    list of conditions and the following disclaimer in the documentation and/or     *
-*    other materials provided with the distribution.                                 *
-*                                                                                    *
-*  · The name of EWM may not be used to endorse or promote products derived from     *
-*    this software without specific prior written permission.                        *
-*                                                                                    *
-* THIS SOFTWARE IS PROVIDED BY EWM ”AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES,    *
-* INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND       *
-* FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL EWM BE LIABLE   *
-* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES *
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS  *
-* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY      *
-* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     *
-* NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN  *
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                      *
-*                                                                                    *
-* For any issues regarding this software and its use, contact EWM at:                *
-*                                                                                    *
-*   Eugene W. Myers Jr.                                                              *
-*   Bautzner Str. 122e                                                               *
-*   01099 Dresden                                                                    *
-*   GERMANY                                                                          *
-*   Email: gene.myers@gmail.com                                                      *
-*                                                                                    *
-\************************************************************************************/
-
 /*******************************************************************************************
  *
  *  Add .fasta files to a DB:
@@ -450,9 +413,14 @@ int main(int argc, char *argv[])
                   nline += 1;
                   x = strlen(read+rlen)-1;
                   if (read[rlen+x] != '\n')
-                    { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
-                      fprintf(stderr," Fasta line is too long (> %d chars)\n",MAX_NAME-2);
-                      goto error;
+                    { if (read[rlen] == '>')
+                        { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
+                          fprintf(stderr," Fasta header line is too long (> %d chars)\n",
+                                         MAX_NAME-2);
+                          goto error;
+                        }
+                      else
+                        x += 1;
                     }
                   if (eof || read[rlen] == '>')
                     break;
@@ -586,7 +554,6 @@ int main(int argc, char *argv[])
         allflag = 0;
       else
         allflag = DB_BEST;
-      size *= 1000000ll;
 
       nblock -= 1;
       for (i = 0; i <= nblock; i++)
