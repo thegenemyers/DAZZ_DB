@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
         bsum[rlen/BIN] += rlen;
       }
 
-    nbin = (maxlen-1)/BIN + 1;
+    nbin = maxlen/BIN + 1;
     ave  = totlen/nreads;
     dev  = 0;
     for (i = 0; i < nreads; i++)
@@ -206,12 +206,19 @@ int main(int argc, char *argv[])
         printf(" standard deviation\n");
       }
 
+    if (totlen <= 0)
+      { free(hist);
+        free(bsum);
+        Close_DB(db);
+        exit (0);
+      }
+
     printf("\n  Base composition: %.3f(A) %.3f(C) %.3f(G) %.3f(T)\n",
            db->freq[0],db->freq[1],db->freq[2],db->freq[3]);
 
     if (!NONE)
       { int64 btot;
-        int   cum, skip;
+        int   cum, skip, avg;
 
         printf("\n  Distribution of Read Lengths (Bin size = ");
         Print_Number((int64) BIN,0,stdout);
@@ -229,8 +236,11 @@ int main(int argc, char *argv[])
               { Print_Number((int64) (i*BIN),11,stdout);
                 printf(":");
                 Print_Number((int64) hist[i],11,stdout);
-                printf("    %5.1f    %5.1f   %9lld\n",(100.*cum)/nreads,
-                                                      (100.*btot)/totlen,btot/cum);
+                if (cum > 0)
+                  avg = btot/cum;
+                else
+                  avg = 0;
+                printf("    %5.1f    %5.1f   %9d\n",(100.*cum)/nreads,(100.*btot)/totlen,avg);
               }
             if (cum == nreads) break;
           }

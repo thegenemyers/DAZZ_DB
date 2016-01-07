@@ -348,7 +348,7 @@ Show overview statistics for all the reads in the trimmed data base <path>.db or
 <path>.dam, including a histogram of read lengths where the bucket size is set
 with the -b option (default 1000).  If the -u option is given then the untrimmed
 database is summarized.  If the -n option is given then the histogran of read lengths
-is not displayed.  Any track such as a "dust" track that gives a seried of
+is not displayed.  Any track such as a "dust" track that gives a series of
 intervals along the read can be specified with the -m option in which case a summary
 and a histogram of the interval lengths is displayed.
 

@@ -54,9 +54,17 @@ int main(int argc, char *argv[])
     SYSTEM_ERROR
   fwrite(&db,sizeof(HITS_DB),1,nxfile);
 
-  for (i = 0; i < db.oreads; i++)
+  fprintf(stderr,"Converting %d reads\n",db.ureads);
+  fflush(stderr);
+
+  for (i = 0; i < db.ureads; i++)
     { HITS_OLD  orec;
       HITS_READ nrec;
+
+      if (i%10000 == 0)
+        { fprintf(stderr,"  Processing %d\n",i);
+          fflush(stderr);
+        }
 
       if (fread(&orec,sizeof(HITS_OLD),1,ixfile) != 1)
         SYSTEM_ERROR
