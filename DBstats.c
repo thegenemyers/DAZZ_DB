@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
     maxlen = db->maxlen;
     reads  = db->reads;
 
-    nbin  = (maxlen-1)/BIN + 1;
+    nbin  = maxlen/BIN;
     hist  = (int *) Malloc(sizeof(int)*nbin,"Allocating histograms");
     bsum  = (int64 *) Malloc(sizeof(int64)*nbin,"Allocating histograms");
     if (hist == NULL || bsum == NULL)
@@ -151,7 +151,6 @@ int main(int argc, char *argv[])
         bsum[rlen/BIN] += rlen;
       }
 
-    nbin = maxlen/BIN + 1;
     ave  = totlen/nreads;
     dev  = 0;
     for (i = 0; i < nreads; i++)
@@ -184,7 +183,10 @@ int main(int argc, char *argv[])
     if (TRIM)
       { printf("      out of ");
         Print_Number((int64 ) oreads,15,stdout);
-        printf("  (%5.1f%%)",(100.*nreads)/oreads);
+        if (oreads <= 0)
+          printf("  (100.0%%)");
+        else
+          printf("  (%5.1f%%)",(100.*nreads)/oreads);
       }
     printf("\n");
 
@@ -193,7 +195,10 @@ int main(int argc, char *argv[])
     if (TRIM)
       { printf("   out of ");
         Print_Number(ototal,15,stdout);
-        printf("  (%5.1f%%)",(100.*totlen)/ototal);
+        if (ototal <= 0)
+          printf("  (100.0%%)");
+        else
+          printf("  (%5.1f%%)",(100.*totlen)/ototal);
       }
     printf("\n\n");
 
@@ -272,7 +277,7 @@ int main(int argc, char *argv[])
               }
           }
 
-        nbin = (maxlen-1)/BIN + 1;
+        nbin = maxlen/BIN + 1;
 
         for (k = 0; k < nbin; k++)
           { hist[k] = 0;
