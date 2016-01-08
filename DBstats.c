@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
     maxlen = db->maxlen;
     reads  = db->reads;
 
-    nbin  = maxlen/BIN;
+    nbin  = maxlen/BIN + 1;
     hist  = (int *) Malloc(sizeof(int)*nbin,"Allocating histograms");
     bsum  = (int64 *) Malloc(sizeof(int64)*nbin,"Allocating histograms");
     if (hist == NULL || bsum == NULL)
