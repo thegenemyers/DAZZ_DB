@@ -254,7 +254,7 @@ int main(int argc, char *argv[])
 
   { int64      totlen;
     int        numint, maxlen;
-    int64      ave, dev;
+    //int64      ave, dev;
     HITS_TRACK *track;
 
     for (track = db->tracks; track != NULL; track = track->next)
@@ -284,18 +284,18 @@ int main(int argc, char *argv[])
             bsum[k] = 0;
           }
 
-        ave  = totlen/numint;
-        dev  = 0;
+        //ave  = totlen/numint;
+        //dev  = 0;
         for (k = 0; k < db->nreads; k++)
           { edata = (int *) (data + anno[k+1]);
             for (idata = (int *) (data + anno[k]); idata < edata; idata += 2)
               { rlen = idata[1] - *idata;
-                dev += (rlen-ave)*(rlen-ave);
+                //dev += (rlen-ave)*(rlen-ave);
                 hist[rlen/BIN] += 1;
                 bsum[rlen/BIN] += rlen;
               }
           }
-        dev = (int64) sqrt((1.*dev)/numint);
+        //dev = (int64) sqrt((1.*dev)/numint);
 
         printf("\n\nStatistics for %s-track\n",track->name);
 
