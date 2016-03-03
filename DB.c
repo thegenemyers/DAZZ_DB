@@ -54,7 +54,7 @@ void *Malloc(int64 size, char *mesg)
 }
 
 void *Realloc(void *p, int64 size, char *mesg)
-{ if ((p = realloc(p,size)) == NULL)
+{ if ((size > 0) && ((p = realloc(p,size)) == NULL))
     { if (mesg == NULL)
         EPRINTF(EPLACE,"%s: Out of memory\n",Prog_Name);
       else

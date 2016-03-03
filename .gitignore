@@ -1,0 +1,17 @@
+*.d
+*.o
+*.a
+Catrack
+DAM2fasta
+DB2fasta
+DB2quiva
+DBdump
+DBdust
+DBrm
+DBshow
+DBsplit
+DBstats
+fasta2DAM
+fasta2DB
+quiva2DB
+simulator
