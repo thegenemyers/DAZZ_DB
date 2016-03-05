@@ -126,7 +126,6 @@ int main(int argc, char *argv[])
   { int        i;
     int64      totlen;
     int        nreads, maxlen;
-    int64      ave, dev;
     HITS_READ *reads;
 
     nreads = db->nreads;
@@ -150,14 +149,6 @@ int main(int argc, char *argv[])
         hist[rlen/BIN] += 1;
         bsum[rlen/BIN] += rlen;
       }
-
-    ave  = totlen/nreads;
-    dev  = 0;
-    for (i = 0; i < nreads; i++)
-      { int rlen = reads[i].rlen;
-        dev += (rlen-ave)*(rlen-ave);
-      }
-    dev = (int64) sqrt((1.*dev)/nreads);
 
     if (dam)
       printf("\nStatistics for all contigs");
@@ -202,13 +193,26 @@ int main(int argc, char *argv[])
       }
     printf("\n\n");
 
-    Print_Number(ave,15,stdout);
-    if (dam)
-      printf(" average contig length\n");
-    else
-      { printf(" average read length\n");
-        Print_Number(dev,15,stdout);
-        printf(" standard deviation\n");
+    if (nreads > 0)
+      { int64 ave, dev;
+
+        ave = totlen/nreads;
+        Print_Number(ave,15,stdout);
+        if (dam)
+          printf(" average contig length\n");
+        else
+          { printf(" average read length\n");
+
+            dev  = 0;
+            for (i = 0; i < nreads; i++)
+              { int rlen = reads[i].rlen;
+                dev += (rlen-ave)*(rlen-ave);
+              }
+            dev = (int64) sqrt((1.*dev)/nreads);
+
+            Print_Number(dev,15,stdout);
+            printf(" standard deviation\n");
+          }
       }
 
     if (totlen <= 0)
@@ -254,14 +258,14 @@ int main(int argc, char *argv[])
 
   { int64      totlen;
     int        numint, maxlen;
-    int64      ave, dev;
     HITS_TRACK *track;
 
     for (track = db->tracks; track != NULL; track = track->next)
       { char  *data = track->data;
         int64 *anno = (int64 *) track->anno;
-        int    k, rlen;
         int   *idata, *edata;
+        int64  ave, dev, btot;
+        int    k, rlen, cum;
 
         totlen = 0;
         numint = 0;
@@ -277,14 +281,23 @@ int main(int argc, char *argv[])
               }
           }
 
-        nbin = maxlen/BIN + 1;
+        printf("\n\nStatistics for %s-track\n",track->name);
 
+        printf("\n  There are ");
+        Print_Number(numint,0,stdout);
+        printf(" intervals totaling ");
+        Print_Number(totlen,0,stdout);
+        printf(" bases (%.1f%% of all data)\n",(100.*totlen)/db->totlen);
+
+        if (numint <= 0) continue;
+
+        nbin = maxlen/BIN + 1;
         for (k = 0; k < nbin; k++)
           { hist[k] = 0;
             bsum[k] = 0;
           }
 
-        ave  = totlen/numint;
+        ave = totlen/numint;
         dev  = 0;
         for (k = 0; k < db->nreads; k++)
           { edata = (int *) (data + anno[k+1]);
@@ -297,36 +310,31 @@ int main(int argc, char *argv[])
           }
         dev = (int64) sqrt((1.*dev)/numint);
 
-        printf("\n\nStatistics for %s-track\n",track->name);
+        printf("\n");
+        Print_Number(ave,15,stdout);
+        printf(" average interval length\n");
+        Print_Number(dev,15,stdout);
+        printf(" standard deviation\n");
 
-        printf("\n  There are ");
-        Print_Number(numint,0,stdout);
-        printf(" intervals totaling ");
-        Print_Number(totlen,0,stdout);
-        printf(" bases (%.1f%% of all data)\n",(100.*totlen)/db->totlen);
 
-        { int64 btot;
-          int   cum;
-
-          printf("\n  Distribution of %s intervals (Bin size = ",track->name);
-          Print_Number((int64) BIN,0,stdout);
-          printf(")\n\n        Bin:      Count  %% Intervals  %% Bases     Average\n");
-          cum  = 0;
-          btot = 0;
-          for (k = nbin-1; k >= 0; k--)
-            { cum  += hist[k];
-              btot += bsum[k];
-              if (hist[k] > 0)
-                { Print_Number((int64) (k*BIN),11,stdout);
-                  printf(":");
-                  Print_Number((int64) hist[k],11,stdout);
-                  printf("        %5.1f    %5.1f   %9lld\n",(100.*cum)/numint,
-                                                        (100.*btot)/totlen,btot/cum);
-                  if (cum == numint) break;
-                }
-            }
-          printf("\n");
-        }
+        printf("\n  Distribution of %s intervals (Bin size = ",track->name);
+        Print_Number((int64) BIN,0,stdout);
+        printf(")\n\n        Bin:      Count  %% Intervals  %% Bases     Average\n");
+        cum  = 0;
+        btot = 0;
+        for (k = nbin-1; k >= 0; k--)
+          { cum  += hist[k];
+            btot += bsum[k];
+            if (hist[k] > 0)
+              { Print_Number((int64) (k*BIN),11,stdout);
+                printf(":");
+                Print_Number((int64) hist[k],11,stdout);
+                printf("        %5.1f    %5.1f   %9lld\n",(100.*cum)/numint,
+                                                      (100.*btot)/totlen,btot/cum);
+                if (cum == numint) break;
+              }
+          }
+        printf("\n");
       }
   }
 
