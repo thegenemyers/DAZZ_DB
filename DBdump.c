@@ -86,17 +86,18 @@ static int qv_map[51] =
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   FILE       *hdrs = NULL;
-  int64      *qv_idx;
-  uint8      *qv_val;
+  int64      *qv_idx = NULL;
+  uint8      *qv_val = NULL;
 
   int         nfiles;
   char      **flist = NULL;
   int        *findx = NULL;
 
-  int            reps, *pts;
   int            input_pts;
+  int            reps = 0;
+  int           *pts  = NULL;
   File_Iterator *iter = NULL;
-  FILE          *input;
+  FILE          *input = NULL;
 
   int         TRIM, UPPER;
   int         DORED, DOSEQ, DOQVS, DOHDR, DOIQV, DAM;
@@ -366,7 +367,7 @@ int main(int argc, char *argv[])
       iter = init_file_iterator(input);
     }
   else
-    { pts  = (int *) Malloc(sizeof(int)*2*(argc-1),"Allocating read parameters");
+    { pts = (int *) Malloc(sizeof(int)*2*(argc-1),"Allocating read parameters");
       if (pts == NULL)
         exit (1);
 
@@ -579,6 +580,8 @@ int main(int argc, char *argv[])
 
     if (input_pts)
       iter = init_file_iterator(input);
+    else
+      iter = NULL;
 
     c = 0;
     while (1)
