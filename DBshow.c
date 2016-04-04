@@ -171,10 +171,12 @@ int main(int argc, char *argv[])
       { root   = Root(argv[1],".dam");
         pwd    = PathTo(argv[1]);
 
+        if (db->part > 0)
+          *rindex(root,'.') = '\0';
         hdrs = Fopen(Catenate(pwd,PATHSEP,root,".hdr"),"r");
         if (hdrs == NULL)
           exit (1);
-        DAM   = 1;
+        DAM = 1;
         if (QUIVA || DOQVS)
           { fprintf(stderr,"%s: -Q and -q options not compatible with a .dam DB\n",Prog_Name);
             exit (1);
