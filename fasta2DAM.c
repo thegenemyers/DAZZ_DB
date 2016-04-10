@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
           }
         flist[ofiles++] = core;
 
-        // Check that the first line has PACBIO format, and record prolog in 'prolog'.
+        // Check that the first line is a header line
 
         if (read[strlen(read)-1] != '\n')
           { fprintf(stderr,"File %s.fasta, Line 1: Fasta line is too long (> %d chars)\n",
