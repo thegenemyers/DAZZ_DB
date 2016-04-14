@@ -52,11 +52,14 @@ static int    RSDEV;      // -s option
 static int    RSHORT;     // -x option
 static double ERROR;      // -e option
 static FILE  *MAP;        // -M option
+static int    CIRCULAR;   // -C option -- wrap sampling
+static FILE  *REFERENCE;  // -R option -- read genome from file
+static int    UPPER;      // -U option -- upper case
 
-#define INS_RATE  .73333  // insert rate
-#define DEL_RATE  .20000  // deletion rate
-#define IDL_RATE  .93333  // insert + delete rate
-#define FLIP_RATE .5      // orientation rate (equal)
+#define INS_RATE  0. //.73333  // insert rate
+#define DEL_RATE  0. //.20000  // deletion rate
+#define IDL_RATE  0. //.93333  // insert + delete rate
+#define FLIP_RATE 1. //.5      // orientation rate (equal)
 
 //  Generate a random 4 letter string of length *len* with every letter having equal probability.
 
@@ -68,11 +71,6 @@ static char *random_genome()
   PRA = BIAS/2.;
   PRC = (1.-BIAS)/2. + PRA;
   PRG = (1.-BIAS)/2. + PRC;
-
-  if (HASR)
-    srand48(SEED);
-  else
-    srand48(getpid());
 
   if ((seq = (char *) Malloc(GENOME+1,"Allocating genome sequence")) == NULL)
     exit (1);
@@ -88,6 +86,56 @@ static char *random_genome()
         seq[i] = 3;
     }
   seq[GENOME] = 4;
+  return (seq);
+}
+static char *double_genome(char *source)
+{ char  *seq;
+  int i;
+  if ((seq = (char *) Malloc(2*GENOME+1,"Allocating doubled genome sequence")) == NULL)
+    exit (1);
+  for (i = 0; i < GENOME; i++)
+    { seq[i] = seq[i+GENOME] = source[i];
+    }
+  seq[2*GENOME] = 4;
+  free(source);
+  return (seq);
+}
+static char *read_genome(FILE *fp)
+{ char  *seq;
+  int    n,c;
+  if ((seq = (char *) Malloc(2*GENOME+1,"Over-allocating genome sequence for read")) == NULL)
+  n = 0;
+  while ((c=fgetc(fp)) != EOF)
+    {
+        switch (c)
+        {
+            case 'a':
+            case 'A':
+                seq[n] = 0;
+                break;
+            case 'c':
+            case 'C':
+                seq[n] = 1;
+                break;
+            case 'g':
+            case 'G':
+                seq[n] = 2;
+                break;
+            case 't':
+            case 'T':
+                seq[n] = 3;
+                break;
+            case ' ':
+            case '\n':
+            case '\t':
+                continue;
+            default:
+                fprintf(stderr, "Unknown letter (%d) (%c)\n", c, c);
+                exit(1);
+        }
+        ++n;
+    }
+  GENOME = n;
   return (seq);
 }
 
@@ -214,7 +262,7 @@ static void shotgun(char *source)
   nsdev = sqrt(nsdev);
 
   if (GENOME < RSHORT)
-    { fprintf(stderr,"Genome length is less than shortest read length !\n");
+    { fprintf(stderr,"Genome length (%d) is less than shortest read length (%d)!\n", GENOME, RSHORT);
       exit (1);
     }
 
@@ -248,8 +296,12 @@ static void shotgun(char *source)
         }
       sdl -= ins;
       elen = len + (ins-del);
-      rbeg = (int) (drand48()*((GENOME-len)+.9999999));
+      if (CIRCULAR)
+          rbeg = (int) (drand48()*GENOME);
+      else
+          rbeg = (int) (drand48()*((GENOME-len)+.9999999));
       rend = rbeg + len;
+      //fprintf(stdout,"\t%d,\t%d, %d\n", (rbeg), (rend-rbeg), len);
 
       if (elen > maxlen)
         { maxlen  = ((int) (1.2*elen)) + 1000;
@@ -300,7 +352,10 @@ static void shotgun(char *source)
       else
         printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
 
-      Lower_Read(rbuffer);
+      if (UPPER)
+        Upper_Read(rbuffer);
+      else
+        Lower_Read(rbuffer);
       for (j = 0; j+80 < elen; j += 80)
         printf("%.80s\n",rbuffer+j);
       if (j < elen)
@@ -319,7 +374,8 @@ int main(int argc, char *argv[])
 
 //  Usage: <GenomeLen:double> [-c<double(20.)>] [-b<double(.5)>] [-r<int>]
 //                            [-m<int(10000)>]  [-s<int(2000)>]  [-x<int(4000)>]
-//                            [-e<double(.15)>] [-M<file]"
+//                            [-e<double(.15)>] [-M<file>]
+//                            [-C<int>] [-R<file>]
 
   { int    i, j;
     char  *eptr;
@@ -335,6 +391,9 @@ int main(int argc, char *argv[])
     RSHORT   = 4000;
     ERROR    = .15;
     MAP      = NULL;
+    REFERENCE= NULL;
+    CIRCULAR = 0;
+    UPPER    = 0;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -343,6 +402,12 @@ int main(int argc, char *argv[])
         { default:
             fprintf(stderr,"%s: -%c is an illegal option\n",Prog_Name,argv[i][2]);
             exit (1);
+          case 'U':
+            ARG_NON_NEGATIVE(UPPER, "Non-zero => upper-case");
+            break;
+          case 'C':
+            ARG_NON_NEGATIVE(CIRCULAR, "Non-zero => circular genome");
+            break;
           case 'c':
             ARG_REAL(COVERAGE)
             if (COVERAGE < 0.)
@@ -364,6 +429,11 @@ int main(int argc, char *argv[])
               { fprintf(stderr,"%s: -r argument is not an integer\n",Prog_Name);
                 exit (1);
               }
+            break;
+          case 'R':
+            REFERENCE = Fopen(argv[i]+2,"r");
+            if (REFERENCE == NULL)
+              exit (1);
             break;
           case 'M':
             MAP = Fopen(argv[i]+2,"w");
@@ -410,7 +480,19 @@ int main(int argc, char *argv[])
     GENOME = (int) (glen*1000000.);
   }
 
-  source = random_genome();
+  if (HASR)
+    srand48(SEED);
+  else
+    srand48(getpid());
+
+  if (!REFERENCE)
+    source = random_genome();
+  else
+    source = read_genome(REFERENCE);
+  fprintf(stderr,"GENOME length=%d\n", GENOME);
+  if (CIRCULAR)
+    { source = double_genome(source);
+    }
 
   shotgun(source);
 
