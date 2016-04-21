@@ -1,7 +1,7 @@
 CFLAGS = -O3 -Wall -Wextra -Wno-unused-result -fno-strict-aliasing
 
 ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator \
-      fasta2DAM DAM2fasta DBdump
+      fasta2DAM DAM2fasta DBdump rangen
 
 all: $(ALL)
 
@@ -40,6 +40,9 @@ DBrm: DBrm.c DB.c DB.h QV.c QV.h
 
 simulator: simulator.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o simulator simulator.c DB.c QV.c -lm
+
+rangen: rangen.c
+	gcc $(CFLAGS) -o rangen rangen.c
 
 fasta2DAM: fasta2DAM.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o fasta2DAM fasta2DAM.c DB.c QV.c -lm
