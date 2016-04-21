@@ -358,37 +358,57 @@ Delete all the files for the given data bases.  Do not use rm to remove a databa
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
 
-14. simulator <genlen:double> [-c<double(20.)>] [-b<double(.5)] [-r<int>]
-                              [-m<int(10000)>]  [-s<int(2000)>]
-                              [-x<int(4000)>]   [-e<double(.15)>]
-                              [-M<file>]
+14.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
+                                  [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
+                                  [-w<int(80)>] [-r<int>] [-M<file>]
 
 In addition to the DB commands we include here, somewhat tangentially, a simple
-simulator that generates synthetic reads for a random genome.  simulator first
-generates a fake genome of size genlen*1Mb long, that has an AT-bias of -b.  It then
-generates sample reads of mean length -m from a log-normal length distribution with
-standard deviation -s, but ignores reads of length less than -x.  It collects enough
-reads to cover the genome -c times and introduces -e fraction errors into each read
-where the ratio of insertions, deletions, and substitutions are set by defined
-constants INS_RATE (default 73%) and DEL_RATE (default 20%) within generate.c.  One
-can also control the rate at which reads are picked from the forward and reverse
-strands by setting the defined constant FLIP_RATE (default 50/50).  The -r option seeds
-the random number generator for the generation of the genome so that one can
-reproducibly generate the same underlying genome to sample from.  If this parameter is
-missing, then the job id of the invocation seeds the random number generator.  The
-output is sent to the standard output (i.e. it is a UNIX pipe).  The output is in
-Pacbio .fasta format suitable as input to fasta2DB.  Finally, the -M option requests
-that the coordinates from which each read has been sampled are written to the indicated
-file, one line per read, ASCII encoded.  This "map" file essentially tells one where
-every read belongs in an assembly and is very useful for debugging and testing
-purposes.  If a read pair is say b,e then if b < e the read was sampled from [b,e] in
-the forward direction, and if b > e from [e,b] in the reverse direction.
+simulator that generates synthetic reads over a given genome reference contained in a
+supplied .dam DB.  The simulator first reconstitutes the scaffolds of the reference
+genome and fills in their gaps (a run of N's in .fasta format indicating the estimate
+gap length) with a random sequence that follows the base distribution of the contigs.
+It will then sample reads from these scaffold sequences.
+
+The simulator generates sample reads of mean length -m from a log-normal length
+distribution with standard deviation -s, but ignores reads of length less than -x. It
+collects enough reads to cover the genome -c times and Introduces -e fraction errors
+into each read where the ratio of insertions, deletions, and substitutions are set by
+defined constants INS_RATE (default 73%) and DEL_RATE (default 20%) within generate.c.
+One can control the rate at which reads are picked from the forward and reverse
+strands with the -f option. The -r option seeds the random number generator for the
+generation process so that one can reproducibly generate the same dataset. If this
+parameter is missing, then the job id of the invocation seeds the random number
+generator effectively guaranteeing a different sampling with each invocation.
+
+The output is sent to the standard output (i.e. it is a UNIX pipe). The output is in
+Pacbio .fasta format suitable as input to fasta2DB. Uppercase letters are used if the
+-U option is given, and the width of each line can be controlled with the -w option.
+
+Finally, the -M option requests that the scaffold and coordinates within said scaffold
+from which each read has been sampled are written to the indicated file, one line per
+read, ASCII encoded. This "map" file essential tells one where every read belongs in
+an assembly and is very useful for debugging and testing purposes. If the map line for
+a read is say 's b e' then if b < e the read is a perturbed copy of s[b,e] in the
+forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
+
+15. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+
+Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.
+Output the sequence to the standard output in .fasta format.  Use uppercase letters if
+-U is set and -w base pairs per line (default 80).  The result can then be converted
+into a .dam DB and given to the simulator to create a read database over a random
+synthetic sequence.  The -r option seeds the random number generator for the
+generation process so that one can reproducibly generate the same sequence. If this
+parameter is missing, then the job id of the invocation seeds the random number
+generator effectively guaranteeing a different sequence with each invocation.
 
 Example:
 
      A small complete example of most of the commands above. 
 
-> simulator 1.0 -c20. >G.fasta  //  Generate a 20x data sets of a 1Mb genome
+> rangen 1.0 >R.fasta           //  Generate a randome 1Mbp sequence R.fasta
+> fasta2DAM R R.fasta           //  Load it into a .dam DB R.dam
+> simulator R -c20. >G.fasta    //  Sample a 20x data sets of the random geneome R
 > fasta2DB G G.fasta            //  Create a compressed data base of the reads, G.db
 > rm G.fasta                    //  Redundant, recreate any time with "DB2fasta G"
 > DBsplit -s11 G                //  Split G into 2 parts of size ~ 11MB each

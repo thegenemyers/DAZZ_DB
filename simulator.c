@@ -44,7 +44,7 @@
 #include "DB.h"
 
 static char *Usage[] = { "<genome:dam> [-CU] [-m<int(10000)>]  [-s<int(2000)>] [-e<double(.15)>]",
-                         "                   [-c<double(20.)>] [-f<double(.5)>] [-x<int(4000)>]",
+                         "                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]",
                          "                   [-w<int(80)>] [-r<int>] [-M<file>]",
                        };
 
@@ -440,15 +440,13 @@ static void shotgun(HITS_DB *source, int nscaffs)
       *t = 4;
 
       if (drand48() >= FLIP_RATE)    //  Complement the string with probability FLIP_RATE.
-        { printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
-          complement(elen,rbuffer);
+        { complement(elen,rbuffer);
           j = rend;
           rend = rbeg;
           rbeg = j;
         }
-      else
-        printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
 
+      printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
       if (UPPER)
         Upper_Read(rbuffer);
       else
@@ -481,7 +479,7 @@ int main(int argc, char *argv[])
     RMEAN     = 10000;
     RSDEV     = 2000;
     ERROR     = .15;
-    COVERAGE  = 20.;
+    COVERAGE  = 50.;
     FLIP_RATE = .5;
     RSHORT    = 4000;
     HASR      = 0;
