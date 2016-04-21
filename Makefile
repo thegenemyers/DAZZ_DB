@@ -1,3 +1,5 @@
+DEST_DIR = ~/bin
+
 CFLAGS = -O3 -Wall -Wextra -Wno-unused-result -fno-strict-aliasing
 
 ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator \
@@ -66,7 +68,7 @@ clean:
 	rm -f dazz.db.tar.gz
 
 install:
-	cp $(ALL) ~/bin
+	cp $(ALL) $(DEST_DIR)
 
 package:
 	make clean
