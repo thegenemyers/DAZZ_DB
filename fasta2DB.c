@@ -35,7 +35,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] [-p<string>] <path:string> ( -f<file> | <input:fasta> ... )";
+static char *Usage = "[-v] <path:string> ( -f<file> | <input:fasta> ... )";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -68,6 +68,8 @@ File_Iterator *init_file_iterator(int argc, char **argv, FILE *input, int first)
 { File_Iterator *it;
 
   it = Malloc(sizeof(File_Iterator),"Allocating file iterator");
+  if (it == NULL)
+    return (NULL);
   it->argc  = argc;
   it->argv  = argv;
   it->input = input;
@@ -94,12 +96,15 @@ int next_file(File_Iterator *it)
       if (fgets(nbuffer,MAX_NAME+8,it->input) == NULL)
         { if (feof(it->input))
             return (0);
-          SYSTEM_ERROR;
+          fprintf(stderr,"%s: IO error reading line %d of -f file of names\n",Prog_Name,it->count);
+          it->name = NULL;
+          return (1);
         }
       if ((eol = index(nbuffer,'\n')) == NULL)
         { fprintf(stderr,"%s: Line %d in file list is longer than %d chars!\n",
                          Prog_Name,it->count,MAX_NAME+7);
           it->name = NULL;
+          return (1);
         }
       *eol = '\0';
       it->count += 1;
@@ -117,7 +122,7 @@ int main(int argc, char *argv[])
   FILE  *bases, *indx;
   int64  boff, ioff;
 
-  int    ifiles, ofiles;
+  int    ifiles, ofiles, ocells;
   char **flist;
 
   HITS_DB db;
@@ -125,10 +130,9 @@ int main(int argc, char *argv[])
   int64   offset;
 
   FILE   *IFILE;
-  char   *PNAME;
   int     VERBOSE;
 
-  //   Usage: [-v] <path:string> ( -f<file> | <input:fasta> ... )
+  //   Process command line
 
   { int   i, j, k;
     int   flags[128];
@@ -136,7 +140,6 @@ int main(int argc, char *argv[])
     ARG_INIT("fasta2DB")
 
     IFILE = NULL;
-    PNAME = NULL;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -151,9 +154,6 @@ int main(int argc, char *argv[])
               { fprintf(stderr,"%s: Cannot open file of inputs '%s'\n",Prog_Name,argv[i]+2);
                 exit (1);
               }
-            break;
-          case 'p':
-            PNAME = argv[i]+2;
             break;
         }
       else
@@ -180,10 +180,11 @@ int main(int argc, char *argv[])
   //    ioff   = offset in .idx file to truncate to if command fails
   //    boff   = offset in .bps file to truncate to if command fails
   //    ifiles = # of .fasta files to add
-  //    ofiles = # of .fasta files already in db
-  //    flist  = [0..ifiles+ofiles] list of file names (root only) added to db so far
+  //    ofiles = # of .fasta files added so far
+  //    ocells = # of SMRT cells already in db
+  //    flist  = [0..ifiles+ocells] list of file names (root only) added to db so far
 
-  { int     i;
+  { int i;
 
     root   = Root(argv[1],".db");
     pwd    = PathTo(argv[1]);
@@ -198,19 +199,30 @@ int main(int argc, char *argv[])
 
         ifiles = 0;
         ng = init_file_iterator(argc,argv,IFILE,2);
+        if (ng == NULL)
+          exit (1);
         while (next_file(ng))
-          ifiles += 1;
+          { if (ng->name == NULL)
+              exit (1);
+            ifiles += 1;
+          }
         free(ng);
       }
 
+    bases = NULL;
+    indx  = NULL;
+    ostub = NULL;
+    ioff  = 0;
+    boff  = 0;
+
     istub = fopen(dbname,"r");
     if (istub == NULL)
-      { ofiles = 0;
+      { ocells = 0;
 
         bases = Fopen(Catenate(pwd,PATHSEP,root,".bps"),"w+");
         indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"w+");
         if (bases == NULL || indx == NULL)
-          exit (1);
+          goto error;
 
         fwrite(&db,sizeof(HITS_DB),1,indx);
 
@@ -220,16 +232,20 @@ int main(int argc, char *argv[])
         ioff    = 0;
       }
     else
-      { if (fscanf(istub,DB_NFILE,&ofiles) != 1)
-          SYSTEM_ERROR
+      { if (fscanf(istub,DB_NFILE,&ocells) != 1)
+          { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
+            goto error;
+          }
 
         bases = Fopen(Catenate(pwd,PATHSEP,root,".bps"),"r+");
         indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
         if (bases == NULL || indx == NULL)
-          exit (1);
+          goto error;
 
         if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
-          SYSTEM_ERROR
+          { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+            goto error;
+          }
         fseeko(bases,0,SEEK_END);
         fseeko(indx, 0,SEEK_END);
 
@@ -239,20 +255,24 @@ int main(int argc, char *argv[])
         ioff   = ftello(indx);
       }
 
-    flist  = (char **) Malloc(sizeof(char *)*(ofiles+ifiles),"Allocating file list");
+    flist  = (char **) Malloc(sizeof(char *)*(ocells+ifiles),"Allocating file list");
     ostub  = Fopen(Catenate(pwd,"/",root,".dbx"),"w+");
     if (ostub == NULL || flist == NULL)
-      exit (1);
+      goto error;
 
-    fprintf(ostub,DB_NFILE,ofiles+ifiles);
-    for (i = 0; i < ofiles; i++)
+    fprintf(ostub,DB_NFILE,ocells+ifiles);   //  Will write again with correct value at end
+    ofiles = 0;
+    for (i = 0; i < ocells; i++)
       { int  last;
         char prolog[MAX_NAME], fname[MAX_NAME];
 
         if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
-          SYSTEM_ERROR
-        if ((flist[i] = Strdup(fname,"Adding to file list")) == NULL)
-          goto error;
+          { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
+            goto error;
+          }
+        if (ofiles == 0 || strcmp(flist[ofiles-1],fname) != 0)
+          if ((flist[ofiles++] = Strdup(fname,"Adding to file list")) == NULL)
+            goto error;
         fprintf(ostub,DB_FDATA,last,fname,prolog);
       }
   }
@@ -287,9 +307,13 @@ int main(int argc, char *argv[])
     //  For each new .fasta file do:
 
     ng = init_file_iterator(argc,argv,IFILE,2);
+    if (ng == NULL)
+      goto error;
+
     while (next_file(ng))
       { FILE *input;
-        char *path, *core, *prolog;
+        char  prolog[MAX_NAME];
+        char *path, *core;
         int   nline, eof, rlen, pcnt;
         int   pwell;
 
@@ -335,12 +359,12 @@ int main(int argc, char *argv[])
         //   Add the file name to flist
 
         if (VERBOSE)
-          { fprintf(stderr,"Adding '%s' ...\n",core);
+          { fprintf(stderr,"Adding '%s.fasta' ...\n",core);
             fflush(stderr);
           }
         flist[ofiles++] = core;
 
-        // Check that the first line has PACBIO format, and record prolog in 'prolog'.
+        // Check that the first line is a header and has PACBIO format.
 
         if (read[strlen(read)-1] != '\n')
           { fprintf(stderr,"File %s.fasta, Line 1: Fasta line is too long (> %d chars)\n",
@@ -358,12 +382,8 @@ int main(int argc, char *argv[])
           find = index(read+1,'/');
           if (find != NULL && sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv) >= 3)
             { *find = '\0';
-              if (PNAME != NULL)
-                prolog = Strdup(PNAME,"Extracting prolog");
-              else
-                prolog = Strdup(read+1,"Extracting prolog");
+              strcpy(prolog,read+1);
               *find = '/';
-              if (prolog == NULL) goto error;
             }
           else
             { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
@@ -388,16 +408,13 @@ int main(int argc, char *argv[])
                                  core,nline);
                   goto error;
                 }
-              if (PNAME == NULL)
-                { *find = '\0';
-                  if (strcmp(read+(rlen+1),prolog) != 0)
-                    { fprintf(stderr,
-                              "File %s.fasta, Line %d: Pacbio header line name inconsistent\n",
-                              core,nline);
-                      goto error;
-                    }
-                  *find = '/';
+              *find = '\0';
+              if (strcmp(read+(rlen+1),prolog) != 0)
+                { fprintf(ostub,DB_FDATA,ureads,core,prolog);
+                  ocells += 1;
+                  strcpy(prolog,read+(rlen+1));
                 }
+              *find = '/';
               x = sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv);
               if (x < 3)
                 { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
@@ -488,7 +505,7 @@ int main(int argc, char *argv[])
             }
 
           //  Complete processing of .fasta file: flush last well group, write file line
-          //      in db image, free prolog, and close file
+          //      in db image, and close file
 
           x = 0;
           for (i = 1; i < pcnt; i++)
@@ -496,11 +513,11 @@ int main(int argc, char *argv[])
               x = i;
           prec[x].flags |= DB_BEST;
           fwrite(prec,sizeof(HITS_READ),pcnt,indx);
-
-          fprintf(ostub,DB_FDATA,ureads,core,prolog);
         }
 
-        free(prolog);
+        fprintf(ostub,DB_FDATA,ureads,core,prolog);
+        ocells += 1;
+
         fclose(input);
       }
 
@@ -544,12 +561,16 @@ int main(int argc, char *argv[])
       //    the indices of the last partial block)
 
       if (fscanf(istub,DB_NBLOCK,&nblock) != 1)
-        SYSTEM_ERROR
+        { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
+          goto error;
+        }
       dbpos = ftello(ostub);
       fprintf(ostub,DB_NBLOCK,0);
       if (fscanf(istub,DB_PARAMS,&size,&cutoff,&allflag) != 3)
-        SYSTEM_ERROR
-      fprintf(ostub,DB_PARAMS,size,cutoff,allflag); 
+        { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
+          goto error;
+        }
+      fprintf(ostub,DB_PARAMS,size,cutoff,allflag);
       if (allflag)
         allflag = 0;
       else
@@ -558,7 +579,9 @@ int main(int argc, char *argv[])
       nblock -= 1;
       for (i = 0; i <= nblock; i++)
         { if (fscanf(istub,DB_BDATA,&ufirst,&tfirst) != 2)
-            SYSTEM_ERROR
+            { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
+              goto error;
+            }
           fprintf(ostub,DB_BDATA,ufirst,tfirst);
         }
 
@@ -571,7 +594,9 @@ int main(int argc, char *argv[])
       ireads = 0;
       for (i = ufirst; i < ureads; i++)
         { if (fread(&record,sizeof(HITS_READ),1,indx) != 1)
-            SYSTEM_ERROR
+            { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+              goto error;
+            }
           rlen = record.rlen;
           if (rlen >= cutoff && (record.flags & DB_BEST) >= allflag)
             { ireads += 1;
@@ -603,7 +628,7 @@ int main(int argc, char *argv[])
   fwrite(&db,sizeof(HITS_DB),1,indx);   //  Write the finalized db record into .idx
 
   rewind(ostub);                        //  Rewrite the number of files actually added
-  fprintf(ostub,DB_NFILE,ofiles);
+  fprintf(ostub,DB_NFILE,ocells);
 
   if (istub != NULL)
     fclose(istub);
@@ -622,24 +647,31 @@ error:
   if (ioff != 0)
     { fseeko(indx,0,SEEK_SET);
       if (ftruncate(fileno(indx),ioff) < 0)
-        SYSTEM_ERROR
+        fprintf(stderr,"%s: Fatal: could not restore %s.idx after error, truncate failed\n",
+                       Prog_Name,root);
     }
   if (boff != 0)
     { fseeko(bases,0,SEEK_SET);
       if (ftruncate(fileno(bases),boff) < 0)
-        SYSTEM_ERROR
+        fprintf(stderr,"%s: Fatal: could not restore %s.bps after error, truncate failed\n",
+                       Prog_Name,root);
     }
-  fclose(indx);
-  fclose(bases);
-  if (ioff == 0)
-    unlink(Catenate(pwd,PATHSEP,root,".idx"));
-  if (boff == 0)
-    unlink(Catenate(pwd,PATHSEP,root,".bps"));
-
+  if (indx != NULL)
+    { fclose(indx);
+      if (ioff == 0)
+        unlink(Catenate(pwd,PATHSEP,root,".idx"));
+    }
+  if (bases != NULL)
+    { fclose(bases);
+      if (boff == 0)
+        unlink(Catenate(pwd,PATHSEP,root,".bps"));
+    }
+  if (ostub != NULL)
+    { fclose(ostub);
+      unlink(Catenate(pwd,"/",root,".dbx"));
+    }
   if (istub != NULL)
     fclose(istub);
-  fclose(ostub);
-  unlink(Catenate(pwd,"/",root,".dbx"));
 
   exit (1);
 }

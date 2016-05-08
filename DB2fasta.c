@@ -18,7 +18,6 @@ static char *Usage = "[-vU] [-w<int(80)>] <path:db>";
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   FILE       *dbfile;
-  int         nfiles;
   int         VERBOSE, UPPER, WIDTH;
 
   //  Process arguments
@@ -55,9 +54,10 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Open db
+  //  Open db, and db stub file
 
   { int   status;
+    char *pwd, *root;
 
     status = Open_DB(argv[1],db);
     if (status < 0)
@@ -70,9 +70,6 @@ int main(int argc, char *argv[])
       { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[1]);
         exit (1);
       }
-  }
-
-  { char *pwd, *root;
 
     pwd    = PathTo(argv[1]);
     root   = Root(argv[1],".db");
@@ -83,23 +80,22 @@ int main(int argc, char *argv[])
       exit (1);
   }
 
-  //  nfiles = # of files in data base
-
-  if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
-    SYSTEM_ERROR
-
-  //  For each file do:
+  //  For each cell do:
 
   { HITS_READ  *reads;
+    char        lname[MAX_NAME];
+    FILE       *ofile;
+    int         f, first, nfiles;
     char       *read;
-    int         f, first;
+
+    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
+      SYSTEM_ERROR
 
     reads = db->reads;
     read  = New_Read_Buffer(db);
     first = 0;
     for (f = 0; f < nfiles; f++)
       { int   i, last;
-        FILE *ofile;
         char  prolog[MAX_NAME], fname[MAX_NAME];
 
         //  Scan db image file line, create .fasta file for writing
@@ -107,12 +103,19 @@ int main(int argc, char *argv[])
         if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
           SYSTEM_ERROR
 
-        if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
-          exit (1);
+        if (f == 0 || strcmp(fname,lname) != 0)
+          { if (f > 0)
+              fclose(ofile);
 
-        if (VERBOSE)
-          { fprintf(stderr,"Creating %s.fasta ...\n",fname);
-            fflush(stdout);
+            if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
+              exit (1);
+
+            if (VERBOSE)
+              { fprintf(stderr,"Creating %s.fasta ...\n",fname);
+                fflush(stdout);
+              }
+
+            strcpy(lname,fname);
           }
 
         //   For the relevant range of reads, write each to the file
@@ -142,6 +145,9 @@ int main(int argc, char *argv[])
 
         first = last;
       }
+
+    if (f > 0)
+      fclose(ofile);
   }
 
   fclose(dbfile);

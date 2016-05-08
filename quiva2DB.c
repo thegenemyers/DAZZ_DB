@@ -22,6 +22,10 @@
 #include "DB.h"
 #include "QV.h"
 
+char Ebuffer[1000];  //  QV.c is compiled interactive in order to have all routines return
+                     //    with error (instead of exiting), so cleanup and restore is possible.
+                     //    But DB.c is not so compiled, so error buffer needs to be declared here.
+
 #ifdef HIDE_FILES
 #define PATHSEP "/."
 #else
@@ -42,6 +46,8 @@ File_Iterator *init_file_iterator(int argc, char **argv, FILE *input, int first)
 { File_Iterator *it;
 
   it = Malloc(sizeof(File_Iterator),"Allocating file iterator");
+  if (it == NULL)
+    return (NULL);
   it->argc  = argc;
   it->argv  = argv;
   it->input = input;
@@ -68,12 +74,15 @@ int next_file(File_Iterator *it)
       if (fgets(nbuffer,MAX_NAME+8,it->input) == NULL)
         { if (feof(it->input))
             return (0);
-          SYSTEM_ERROR;
+          fprintf(stderr,"%s: IO error reading line %d of -f file of names\n",Prog_Name,it->count);
+          it->name = NULL;
+          return (1);
         }
       if ((eol = index(nbuffer,'\n')) == NULL)
         { fprintf(stderr,"%s: Line %d in file list is longer than %d chars!\n",
                          Prog_Name,it->count,MAX_NAME+7);
           it->name = NULL;
+          return (1);
         }
       *eol = '\0';
       it->count += 1;
@@ -84,15 +93,22 @@ int next_file(File_Iterator *it)
 
 
 int main(int argc, char *argv[])
-{ FILE      *istub, *quiva, *indx;
+{ FILE      *istub;
+  char      *root, *pwd;
+
+  FILE      *quiva, *indx;
   int64      coff;
-  int        ofile;
+
   HITS_DB    db;
   HITS_READ *reads;
+  int        nfiles;
+
+  FILE      *temp;
+  char      *tname;
 
   int        VERBOSE;
   int        LOSSY;
-  FILE      *IFILE;
+  FILE      *INFILE;
 
   //  Process command line
 
@@ -101,7 +117,7 @@ int main(int argc, char *argv[])
 
     ARG_INIT("quiva2DB")
 
-    IFILE = NULL;
+    INFILE = NULL;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -111,8 +127,8 @@ int main(int argc, char *argv[])
             ARG_FLAGS("vl")
             break;
           case 'f':
-            IFILE = fopen(argv[i]+2,"r");
-            if (IFILE == NULL)
+            INFILE = fopen(argv[i]+2,"r");
+            if (INFILE == NULL)
               { fprintf(stderr,"%s: Cannot open file of inputs '%s'\n",Prog_Name,argv[i]+2);
                 exit (1);
               }
@@ -125,191 +141,280 @@ int main(int argc, char *argv[])
     VERBOSE = flags['v'];
     LOSSY   = flags['l'];
 
-    if ((IFILE == NULL && argc <= 2) || (IFILE != NULL && argc != 2))
+    if ((INFILE == NULL && argc <= 2) || (INFILE != NULL && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         exit (1);
       }
   }
 
-  //  Open DB stub file and index, load db and read records.  Confirm that the .fasta files
-  //    corresponding to the command line .quiva files are in the DB and in order where the
-  //    index of the first file is ofile and the index of the first read to be added is ofirst.
-  //    Record in coff the current size of the .qvs file in case an error occurs and it needs
-  //    to be truncated back to its size at the start.
+  //  Open DB stub file, index, and .qvs file for appending.  Load db and read records,
+  //    get number of cells from stub file, and note current offset to end of .qvs
 
-  { int            i;
-    char          *pwd, *root;
-    int            nfiles;
-    File_Iterator *ng;
-
-    root   = Root(argv[1],".db");
-    pwd    = PathTo(argv[1]);
-    istub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
-    if (istub == NULL)
+  root   = Root(argv[1],".db");
+  pwd    = PathTo(argv[1]);
+  istub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
+  if (istub == NULL)
+    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
       exit (1);
-
-    indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
-    if (indx == NULL)
+    }
+  if (fscanf(istub,DB_NFILE,&nfiles) != 1)
+    { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",root,Prog_Name);
       exit (1);
-    if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
-      SYSTEM_ERROR
-
-    reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
-    if (reads == NULL)
-      exit (1);
-    if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
-      SYSTEM_ERROR
-
-    { int   first, last;
-      char  prolog[MAX_NAME], fname[MAX_NAME];
-      char *core;
-
-      ng = init_file_iterator(argc,argv,IFILE,2);
-      if ( ! next_file(ng))
-        { fprintf(stderr,"%s: file list is empty!\n",Prog_Name);
-          exit (1);
-        }
-      if (ng->name == NULL) exit (1);
-
-      core = Root(ng->name,".quiva");
-
-      if (fscanf(istub,DB_NFILE,&nfiles) != 1)
-        SYSTEM_ERROR
-      first = 0;
-      for (i = 0; i < nfiles; i++)
-        { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
-            SYSTEM_ERROR
-          if (strcmp(core,fname) == 0)
-            break;
-          first = last;
-        }
-      if (i >= nfiles)
-        { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
-          exit (1);
-        }
-
-      ofile  = i;
-      if (first > 0 && reads[first-1].coff < 0)
-        { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",Prog_Name,core);
-          exit (1);
-        }
-      if (reads[first].coff >= 0)
-        { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
-          exit (1);
-        }
-
-      while (next_file(ng))
-        { if (ng->name == NULL)
-            exit (1);
-          core = Root(ng->name,".quiva");
-          if (++i >= nfiles)
-            { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
-              exit (1);
-            }
-          if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
-            SYSTEM_ERROR
-          if (strcmp(core,fname) != 0)
-            { fprintf(stderr,"%s: Files not being added in order (expect %s, given %s)",
-                             Prog_Name,fname,core);
-              exit (1);
-            }
-        }
-
-      if (ofile == 0)
-        quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"w");
-      else
-        quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"r+");
-      if (quiva == NULL)
-        exit (1);
-
-      fseeko(quiva,0,SEEK_END);
-      coff = ftello(quiva);
-
-      free(core);
-      free(ng);
     }
 
-    free(root);
-    free(pwd);
-  }
+  indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
+  if (indx == NULL)
+    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+      exit (1);
+    }
+  if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
+    { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+      exit (1);
+    }
 
-  //  For each .quiva file, determine its compression scheme in a fast scan and append it to
-  //    the .qvs file  Then compress every .quiva entry in the file, appending its compressed
-  //    form to the .qvs file as you go and recording the offset in the .qvs in the .coff field
-  //    of each read record (*except* the first, that points at the compression scheme immediately
-  //    preceding it).  Ensure that the # of .quiva entries matches the # of .fasta entries
-  //    in each added file.
+  reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
+  if (reads == NULL)
+    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+      exit (1);
+    }
+  if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
+    { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+      exit (1);
+    }
 
-  { int            i;
-    int            last, cur;
+  quiva = NULL;
+  temp  = NULL;
+  coff  = 0;
+
+  if (reads[0].coff < 0)
+    quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"w");
+  else
+    quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"r+");
+
+  tname = Strdup(Catenate(".",PATHSEP,root,Numbered_Suffix("",getpid(),".tmp")),
+                 "Allocating temporary name");
+  temp = Fopen(tname,"w+");
+
+  if (quiva == NULL || temp == NULL)
+    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+      goto error;
+    }
+  fseeko(quiva,0,SEEK_END);
+  coff = ftello(quiva);
+
+  //  Do a merged traversal of cell lines in .db stub file and .quiva files to be
+  //    imported, driving the loop with the cell line #
+
+  { FILE          *input;
+    char          *path, *core;
     File_Iterator *ng;
+    char           lname[MAX_NAME];
+    int            first, last, cline;
+    int            cell;
 
-    //  For each .quiva file do:
+    ng = init_file_iterator(argc,argv,INFILE,2);
+    if (ng == NULL)
+      { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+        goto error;
+      }
 
-    rewind(istub);
-    if (fscanf(istub,"files = %*d\n") != 0)
-      SYSTEM_ERROR
+    for (cell = 0; cell < nfiles; cell++)
+      { char  prolog[MAX_NAME], fname[MAX_NAME];
 
-    last = 0;
-    for (i = 0; i < ofile; i++)
-      if (fscanf(istub,"  %9d %*s %*s\n",&last) != 1)
-        SYSTEM_ERROR
+        //  First addition: then get first .quiva file name (error if not one) to add, 
+        //    find the first cell name whose file name matches (error if none), check that
+        //    the previous .quiva's have been added and this is the next slot.  Then open
+        //    the .quiva file for compression
 
-    ng  = init_file_iterator(argc,argv,IFILE,2);
-    cur = last;
-    while (next_file(ng))
-      { FILE     *input;
-        int64     qpos;
-        char     *pwd, *root;
-        QVcoding *coding;
+        if (cell == 0)
+          { if (! next_file(ng))
+              { fprintf(stderr,"%s: file list is empty!\n",Prog_Name);
+                goto error;
+              }
+            if (ng->name == NULL)
+              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                goto error;
+              }
 
-        //  Open next .quiva file and create its compression scheme
+            core = Root(ng->name,".quiva");
+            path = PathTo(ng->name);
 
-        pwd  = PathTo(ng->name);
-        root = Root(ng->name,".quiva");
-        if ((input = Fopen(Catenate(pwd,"/",root,".quiva"),"r")) == NULL)
-          goto error;
+            first = 0;
+            while (cell < nfiles)
+              { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+                  { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
+                    goto error;
+                  }
+                if (strcmp(core,fname) == 0)
+                  break;
+                first = last;
+                cell += 1;
+              }
+            if (cell >= nfiles)
+              { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
+                goto error;
+              }
+      
+            if (first > 0 && reads[first-1].coff < 0)
+              { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",
+                               Prog_Name,core);
+                goto error;
+              }
+            if (reads[first].coff >= 0)
+              { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
+                goto error;
+              }
 
-        if (VERBOSE)
-          { fprintf(stderr,"Analyzing '%s' ...\n",root);
-            fflush(stderr);
+            if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
+              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                goto error;
+              }
+
+            if (VERBOSE)
+              { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
+                fflush(stderr);
+              }
+            cline = 0;
           }
 
-        QVcoding_Scan(input);
-        coding = Create_QVcoding(LOSSY);
-        coding->prefix = Strdup(".qvs","Allocating header prefix");
+        //  Not the first addition: get next cell line.  If the file name is new, then
+        //    close the current .quiva, open the next one and after ensuring the names
+        //    match, open it for compression
 
-        qpos = ftello(quiva);
-        Write_QVcoding(quiva,coding);
+        else
+          { first = last;  
+            strcpy(lname,fname);
+            if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+              { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
+                goto error;
+              }
+            if (strcmp(lname,fname) != 0)
+              { fclose(input);
+                free(path);
+                free(core);
 
-        //  Then compress and append to the .qvs each compressed QV entry
+                if ( ! next_file(ng))
+                  break;
+                if (ng->name == NULL)
+                  { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                    goto error;
+                  }
+
+                path = PathTo(ng->name);
+                core = Root(ng->name,".quiva");
+
+                if (strcmp(core,fname) != 0)
+                  { fprintf(stderr,"%s: Files not being added in order (expect %s, given %s)\n",
+                                   Prog_Name,fname,core);
+                    goto error;
+                  }
+
+                if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
+                  { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                    goto error;
+                  }
+
+                if (VERBOSE)
+                  { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
+                    fflush(stderr);
+                  }
+                cline = 0;
+              }
+          }
+
+        //  Compress reads [first..last) from open .quiva appending to .qvs and record
+        //    offset in .coff field of reads (offset of first in a cell is to the compression
+        //    table).
+
+        { int64     qpos;
+          QVcoding *coding;
+          int       i, s;
+
+          rewind(temp);
+          if (ftruncate(fileno(temp),0) < 0)
+            { fprintf(stderr,"%s: System error: could not truncate temporary file\n",Prog_Name);
+              goto error;
+            }
+          Set_QV_Line(cline);
+          if (QVcoding_Scan(input,last-first,temp))
+            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+              goto error;
+            }
+          if (ftello(temp) == 0)
+            { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 1\n",
+                             Prog_Name,core,core);
+              goto error;
+            }
+
+          coding = Create_QVcoding(LOSSY);
+          if (coding == NULL)
+            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+              goto error;
+            }
+
+          coding->prefix = Strdup(".qvs","Allocating header prefix");
+          if (coding->prefix == NULL)
+            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+              goto error;
+            }
+
+          qpos = ftello(quiva);
+          Write_QVcoding(quiva,coding);
+
+          //  Then compress and append to the .qvs each compressed QV entry
  
-        if (VERBOSE)
-          { fprintf(stderr,"Compressing '%s' ...\n",root);
-            fflush(stderr);
-          }
+          rewind(temp);
+          Set_QV_Line(cline);
+          for (i = first; i < last; i++)
+            { s = Read_Lines(temp,1);
+              if (s < -1)
+                { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                  goto error;
+                }
+              if (s < 0)
+                { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 1\n",
+                                 Prog_Name,core,core);
+                  goto error;
+                }
+              reads[i].coff = qpos;
+              s = Compress_Next_QVentry(temp,quiva,coding,LOSSY);
+              if (s < 0)
+                { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                  goto error;
+                }
+              if (s != reads[i].rlen)
+               { fprintf(stderr,"%s: Length of read %d in %s.quiva not the same as in %s.fasta 1\n",
+                                Prog_Name,i+1,core,core);
+printf(" %d vs %d\n",s,reads[i].rlen);
+                 goto error;
+               }
+              qpos = ftello(quiva);
+            }
+          if (Read_Lines(temp,1) >= 0)
+            { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 2\n",
+                             Prog_Name,core,core);
+              goto error;
+            }
+          cline = Get_QV_Line();
 
-        rewind(input);
-        while (Read_Lines(input,1) > 0)
-          { reads[cur++].coff = qpos;
-            Compress_Next_QVentry(input,quiva,coding,LOSSY);
-            qpos = ftello(quiva);
-          }
+          Free_QVcoding(coding);
+        }
+      }
 
-        if (fscanf(istub,"  %9d %*s %*s\n",&last) != 1)
-          SYSTEM_ERROR
-        if (last != cur)
-          { fprintf(stderr,"%s: Number of reads in %s.quiva doesn't match number in %s.fasta\n",
-                           Prog_Name,root,root);
+    if (cell >= nfiles)
+      { fclose(input);
+        free(core);
+        free(path);
+        if (next_file(ng))
+          { if (ng->name == NULL)
+              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                goto error;
+              }
+            core = Root(ng->name,".quiva");
+            fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
             goto error;
           }
-
-        Free_QVcoding(coding);
-        free(root);
-        free(pwd);
-    }
-
-    free(ng);
+      }
   }
 
   //  Write the db record and read index into .idx and clean up
@@ -321,6 +426,8 @@ int main(int argc, char *argv[])
   fclose(istub);
   fclose(indx);
   fclose(quiva);
+  fclose(temp);
+  unlink(tname);
 
   exit (0);
 
@@ -330,18 +437,20 @@ error:
   if (coff != 0)
     { fseeko(quiva,0,SEEK_SET);
       if (ftruncate(fileno(quiva),coff) < 0)
-        SYSTEM_ERROR
+        fprintf(stderr,"%s: Fatal: could not restore %s.qvs after error, truncate failed\n",
+                       Prog_Name,root);
+    }
+  if (quiva != NULL)
+    { fclose(quiva);
+      if (coff == 0)
+        unlink(Catenate(pwd,PATHSEP,root,".qvs"));
+    }
+  if (temp != NULL)
+    { fclose(temp);
+      unlink(tname);
     }
   fclose(istub);
   fclose(indx);
-  fclose(quiva);
-  if (coff == 0)
-    { char *root = Root(argv[1],".db");
-      char *pwd  = PathTo(argv[1]);
-      unlink(Catenate(pwd,PATHSEP,root,".qvs"));
-      free(pwd);
-      free(root);
-     }
 
   exit (1);
 }
