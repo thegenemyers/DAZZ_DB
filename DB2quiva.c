@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
   { HITS_READ  *reads;
     char        lname[MAX_NAME];
     FILE       *ofile;
-    int         f, first, nfiles;
+    int         f, first, last, ofirst, nfiles;
     QVcoding   *coding;
     char      **entry;
 
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     entry = New_QV_Buffer(db);
     first = 0;
     for (f = 0; f < nfiles; f++)
-      { int   i, last;
+      { int   i;
         char  prolog[MAX_NAME], fname[MAX_NAME];
 
         //  Scan db image file line, create .quiva file for writing
@@ -106,14 +106,31 @@ int main(int argc, char *argv[])
 
         if (f == 0 || strcmp(fname,lname) != 0)
           { if (f > 0)
-              fclose(ofile);
+              { if (ofile == stdout)
+                  { fprintf(stderr," %d quivas\n",first-ofirst);
+                    fflush(stderr);
+                  }
+                else
+                  fclose(ofile);
+              }
 
-            if ((ofile = Fopen(Catenate(".","/",fname,".quiva"),"w")) == NULL)
-              exit (1);
+            if (strcmp(fname,"stdout") == 0)
+              { ofile  = stdout;
+                ofirst = first;
 
-            if (VERBOSE)
-              { fprintf(stderr,"Creating %s.quiva ...\n",fname);
-                fflush(stderr);
+                if (VERBOSE)
+                  { fprintf(stderr,"Sending to stdout ...");
+                    fflush(stdout);
+                  }
+              }
+            else
+              { if ((ofile = Fopen(Catenate(".","/",fname,".quiva"),"w")) == NULL)
+                  exit (1);
+
+                if (VERBOSE)
+                  { fprintf(stderr,"Creating %s.quiva ...\n",fname);
+                    fflush(stderr);
+                  }
               }
 
             strcpy(lname,fname);
@@ -155,7 +172,13 @@ int main(int argc, char *argv[])
       }
 
     if (f > 0)
-      fclose(ofile);
+      { if (ofile == stdout)
+          { fprintf(stderr," %d quivas\n",first-ofirst);
+            fflush(stderr);
+          }
+        else
+          fclose(ofile);
+      }
   }
 
   fclose(quiva);

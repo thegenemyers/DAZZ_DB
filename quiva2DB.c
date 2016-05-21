@@ -22,9 +22,8 @@
 #include "DB.h"
 #include "QV.h"
 
-char Ebuffer[1000];  //  QV.c is compiled interactive in order to have all routines return
-                     //    with error (instead of exiting), so cleanup and restore is possible.
-                     //    But DB.c is not so compiled, so error buffer needs to be declared here.
+//  Compiled in INTERACTIVE mode as all routines must return with an error
+//    so that cleanup and restore is possible.
 
 #ifdef HIDE_FILES
 #define PATHSEP "/."
@@ -32,7 +31,7 @@ char Ebuffer[1000];  //  QV.c is compiled interactive in order to have all routi
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-vl] <path:string> ( -f<file> | <input:quiva> ... )";
+static char *Usage = "[-vl] <path:string> ( -f<file> | -i | <input:quiva> ... )";
 
 typedef struct
   { int    argc;
@@ -108,6 +107,7 @@ int main(int argc, char *argv[])
 
   int        VERBOSE;
   int        LOSSY;
+  int        PIPE;
   FILE      *INFILE;
 
   //  Process command line
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("vl")
+            ARG_FLAGS("vli")
             break;
           case 'f':
             INFILE = fopen(argv[i]+2,"r");
@@ -140,8 +140,15 @@ int main(int argc, char *argv[])
 
     VERBOSE = flags['v'];
     LOSSY   = flags['l'];
+    PIPE    = flags['i'];
 
-    if ((INFILE == NULL && argc <= 2) || (INFILE != NULL && argc != 2))
+    if (INFILE != NULL && PIPE)
+      { fprintf(stderr,"%s: Cannot use both -f and -i together\n",Prog_Name);
+        exit (1);
+      }
+
+    if ( (INFILE == NULL && ! PIPE && argc <= 2) || 
+        ((INFILE != NULL || PIPE) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         exit (1);
       }
@@ -154,7 +161,7 @@ int main(int argc, char *argv[])
   pwd    = PathTo(argv[1]);
   istub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
   if (istub == NULL)
-    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+    { fprintf(stderr,"%s",Ebuffer);
       exit (1);
     }
   if (fscanf(istub,DB_NFILE,&nfiles) != 1)
@@ -164,7 +171,7 @@ int main(int argc, char *argv[])
 
   indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
   if (indx == NULL)
-    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+    { fprintf(stderr,"%s",Ebuffer);
       exit (1);
     }
   if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
@@ -174,7 +181,7 @@ int main(int argc, char *argv[])
 
   reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
   if (reads == NULL)
-    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+    { fprintf(stderr,"%s",Ebuffer);
       exit (1);
     }
   if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
@@ -196,7 +203,7 @@ int main(int argc, char *argv[])
   temp = Fopen(tname,"w+");
 
   if (quiva == NULL || temp == NULL)
-    { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+    { fprintf(stderr,"%s",Ebuffer);
       goto error;
     }
   fseeko(quiva,0,SEEK_END);
@@ -212,73 +219,105 @@ int main(int argc, char *argv[])
     int            first, last, cline;
     int            cell;
 
-    ng = init_file_iterator(argc,argv,INFILE,2);
-    if (ng == NULL)
-      { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
-        goto error;
+    if (!PIPE)
+      { ng = init_file_iterator(argc,argv,INFILE,2);
+        if (ng == NULL)
+          { fprintf(stderr,"%s",Ebuffer);
+            goto error;
+          }
       }
 
     for (cell = 0; cell < nfiles; cell++)
       { char  prolog[MAX_NAME], fname[MAX_NAME];
 
-        //  First addition: then get first .quiva file name (error if not one) to add, 
-        //    find the first cell name whose file name matches (error if none), check that
-        //    the previous .quiva's have been added and this is the next slot.  Then open
-        //    the .quiva file for compression
-
         if (cell == 0)
-          { if (! next_file(ng))
-              { fprintf(stderr,"%s: file list is empty!\n",Prog_Name);
-                goto error;
-              }
-            if (ng->name == NULL)
-              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
-                goto error;
-              }
 
-            core = Root(ng->name,".quiva");
-            path = PathTo(ng->name);
+          //  First addition, a pipe: find the first cell that does not have .quiva's yet
+          //     (error if none) and set input source to stdin.
 
-            first = 0;
-            while (cell < nfiles)
-              { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
-                  { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
-                    goto error;
-                  }
-                if (strcmp(core,fname) == 0)
-                  break;
-                first = last;
-                cell += 1;
-              }
-            if (cell >= nfiles)
-              { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
-                goto error;
-              }
-      
-            if (first > 0 && reads[first-1].coff < 0)
-              { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",
-                               Prog_Name,core);
-                goto error;
-              }
-            if (reads[first].coff >= 0)
-              { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
-                goto error;
-              }
+          if (PIPE)
+            { first = 0;
+              while (cell < nfiles)
+                { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+                    { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
+                      goto error;
+                    }
+                  if (reads[first].coff < 0)
+                    break;
+                  first = last;
+                  cell += 1;
+                }
+              if (cell >= nfiles)
+                { fprintf(stderr,"%s: All .quiva's have already been added !?\n",Prog_Name);
+                  goto error;
+                }
 
-            if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
-              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
-                goto error;
-              }
+              input = stdin;
 
-            if (VERBOSE)
-              { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
-                fflush(stderr);
-              }
-            cline = 0;
-          }
+              if (VERBOSE)
+                { fprintf(stderr,"Adding quiva's from stdin ...\n");
+                  fflush(stderr);
+                }
+              cline = 0;
+            }
 
-        //  Not the first addition: get next cell line.  If the file name is new, then
-        //    close the current .quiva, open the next one and after ensuring the names
+          //  First addition, not a pipe: then get first .quiva file name (error if not one) to
+          //    add, find the first cell name whose file name matches (error if none), check that
+          //    the previous .quiva's have been added and this is the next slot.  Then open
+          //    the .quiva file for compression
+
+          else
+            { if (! next_file(ng))
+                { fprintf(stderr,"%s: file list is empty!\n",Prog_Name);
+                  goto error;
+                }
+              if (ng->name == NULL)
+                { fprintf(stderr,"%s",Ebuffer);
+                  goto error;
+                }
+  
+              core = Root(ng->name,".quiva");
+              path = PathTo(ng->name);
+              if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
+                { fprintf(stderr,"%s",Ebuffer);
+                  goto error;
+                }
+  
+              first = 0;
+              while (cell < nfiles)
+                { if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
+                    { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
+                      goto error;
+                    }
+                  if (strcmp(core,fname) == 0)
+                    break;
+                  first = last;
+                  cell += 1;
+                }
+              if (cell >= nfiles)
+                { fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
+                  goto error;
+                }
+        
+              if (first > 0 && reads[first-1].coff < 0)
+                { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",
+                                 Prog_Name,core);
+                  goto error;
+                }
+              if (reads[first].coff >= 0)
+                { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
+                  goto error;
+                }
+  
+              if (VERBOSE)
+                { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
+                  fflush(stderr);
+                }
+              cline = 0;
+            }
+
+        //  Not the first addition: get next cell line.  If not a pipe and the file name is new,
+        //    then close the current .quiva, open the next one and after ensuring the names
         //    match, open it for compression
 
         else
@@ -288,29 +327,40 @@ int main(int argc, char *argv[])
               { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",core,Prog_Name);
                 goto error;
               }
-            if (strcmp(lname,fname) != 0)
-              { fclose(input);
+            if (PIPE)
+              { int c;
+                if ((c = fgetc(input)) == EOF)
+                  break;
+                ungetc(c,input);
+              }
+            else if (strcmp(lname,fname) != 0)
+              { if (fgetc(input) != EOF)
+                  { fprintf(stderr,"%s: Too many reads in %s.quiva while handling %s.fasta\n",
+                                   Prog_Name,core,fname);
+                    goto error;
+                  }
+
+                fclose(input);
                 free(path);
                 free(core);
 
                 if ( ! next_file(ng))
                   break;
                 if (ng->name == NULL)
-                  { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                  { fprintf(stderr,"%s",Ebuffer);
                     goto error;
                   }
 
                 path = PathTo(ng->name);
                 core = Root(ng->name,".quiva");
+                if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
+                  { fprintf(stderr,"%s",Ebuffer);
+                    goto error;
+                  }
 
                 if (strcmp(core,fname) != 0)
                   { fprintf(stderr,"%s: Files not being added in order (expect %s, given %s)\n",
                                    Prog_Name,fname,core);
-                    goto error;
-                  }
-
-                if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
-                  { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
                     goto error;
                   }
 
@@ -336,25 +386,30 @@ int main(int argc, char *argv[])
               goto error;
             }
           Set_QV_Line(cline);
-          if (QVcoding_Scan(input,last-first,temp))
-            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+          s = QVcoding_Scan(input,last-first,temp);
+          if (s < 0)
+            { fprintf(stderr,"%s",Ebuffer);
               goto error;
             }
-          if (ftello(temp) == 0)
-            { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 1\n",
-                             Prog_Name,core,core);
+          if (s != last-first)
+            { if (PIPE)
+                fprintf(stderr,"%s: Insufficient # of reads on input while handling %s.fasta\n",
+                               Prog_Name,fname);
+              else
+                fprintf(stderr,"%s: Insufficient # of reads in %s.quiva while handling %s.fasta\n",
+                               Prog_Name,core,fname);
               goto error;
             }
 
           coding = Create_QVcoding(LOSSY);
           if (coding == NULL)
-            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+            { fprintf(stderr,"%s",Ebuffer);
               goto error;
             }
 
           coding->prefix = Strdup(".qvs","Allocating header prefix");
           if (coding->prefix == NULL)
-            { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+            { fprintf(stderr,"%s",Ebuffer);
               goto error;
             }
 
@@ -368,32 +423,21 @@ int main(int argc, char *argv[])
           for (i = first; i < last; i++)
             { s = Read_Lines(temp,1);
               if (s < -1)
-                { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
-                  goto error;
-                }
-              if (s < 0)
-                { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 1\n",
-                                 Prog_Name,core,core);
+                { fprintf(stderr,"%s",Ebuffer);
                   goto error;
                 }
               reads[i].coff = qpos;
               s = Compress_Next_QVentry(temp,quiva,coding,LOSSY);
               if (s < 0)
-                { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+                { fprintf(stderr,"%s",Ebuffer);
                   goto error;
                 }
               if (s != reads[i].rlen)
-               { fprintf(stderr,"%s: Length of read %d in %s.quiva not the same as in %s.fasta 1\n",
-                                Prog_Name,i+1,core,core);
-printf(" %d vs %d\n",s,reads[i].rlen);
-                 goto error;
-               }
+                { fprintf(stderr,"%s: Length of quiva %d is different than fasta in DB\n",
+                                 Prog_Name,i+1);
+                  goto error;
+                }
               qpos = ftello(quiva);
-            }
-          if (Read_Lines(temp,1) >= 0)
-            { fprintf(stderr,"%s: Number of reads in %s.quiva != number in %s.fasta 2\n",
-                             Prog_Name,core,core);
-              goto error;
             }
           cline = Get_QV_Line();
 
@@ -401,13 +445,22 @@ printf(" %d vs %d\n",s,reads[i].rlen);
         }
       }
 
-    if (cell >= nfiles)
+    if (fgetc(input) != EOF)
+      { if (PIPE)
+          fprintf(stderr,"%s: Too many reads on input while handling %s.fasta\n",
+                         Prog_Name,lname);
+        else
+          fprintf(stderr,"%s: Too many reads in %s.quiva while handling %s.fasta\n",
+                         Prog_Name,core,lname);
+        goto error;
+      }
+    if ( ! PIPE && cell >= nfiles)
       { fclose(input);
         free(core);
         free(path);
         if (next_file(ng))
           { if (ng->name == NULL)
-              { fprintf(stderr,"%s: %s",Prog_Name,Ebuffer);
+              { fprintf(stderr,"%s",Ebuffer);
                 goto error;
               }
             core = Root(ng->name,".quiva");

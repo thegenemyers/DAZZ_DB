@@ -161,17 +161,23 @@ a command such as DBshow.
 All programs add suffixes (e.g. .db) as needed.  The commands of the database library
 are currently as follows:
 
-1. fasta2DB [-v] <path:db> ( -f<file> | <input:fasta> ... )
+1. fasta2DB [-v] <path:db> ( -f<file> | -i[<name>] | <input:fasta> ... )
 
-Builds an initial data base, or adds to an existing database, the list of .fasta files
-following the database name argument, or if the -f option is used, the list of .fasta
-files in <file>.  A given .fasta file can only be added once to the DB (this is checked
-by the command).  The .fasta headers must be in the "Pacbio" format (i.e. the output
-of the Pacbio tools or our dextract program) and the well, pulse interval, and read
-quality are extracted from the header and kept with each read record.  If the files
-are being added to an existing database, and the partition settings of the DB have
-already been set (see DBsplit below), then the partitioning of the database is updated
-to include the new data.
+Builds an initial data base, or adds to an existing database, either (a) the list of
+.fasta files following the database name argument, or (b) the list of .fasta files in
+<file> if the -f option is used, or (c) entries piped from the standard input if the
+-i option is used.  If a faux file name, <name>, follows the -i option then all the
+input received is considered to have come from a file by the name of <name>.fasta by
+DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  The SMRT cells
+in a given named input (i.e. all sources other than -i without a name) can only be
+added consecutively to the DB (this is checked by the command). The .fasta headers must
+be in the "Pacbio" format (i.e. the output of the Pacbio tools or our dextract program)
+and the well, pulse interval, and read quality are extracted from the header and kept
+with each read record. If the files are being added to an existing database, and the
+partition settings of the DB have already been set (see DBsplit below), then the
+partitioning of the database is updated to include the new data.  A file may contain
+the data from multiple SMRT cells provided the reads for each SMRT cell are consecutive
+in the file.
 
 2. DB2fasta [-vU] [-w<int(80)>] <path:db>
 
@@ -179,19 +185,22 @@ The set of .fasta files for the given DB are recreated from the DB exactly as th
 input.  That is, this is a perfect inversion, including the reconstitution of the
 proper .fasta headers.  Because of this property, one can, if desired, delete the
 .fasta source files once they are in the DB as they can always be recreated from it.
+Entries imported from the standard input will be place in the faux file name given on
+import, or to the standard output if no name was given. 
 By default the output sequences are in lower case and 80 chars per line.  The -U option
 specifies upper case should be used, and the characters per line, or line width, can be
 set to any positive value with the -w option.
 
-3. quiva2DB [-vl] <path:db> ( -f<file> | <input:quiva> ... )
+3. quiva2DB [-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )
 
-Adds the given .quiva files on the command line or in the file specified by the
--f option to an existing DB "path".  The input files must be added in the same order
-as the .fasta files were and have the same root names, e.g. FOO.fasta and FOO.quiva.
-The files can be added incrementally but must be added in the same order as the .fasta
-files.  This is enforced by the program.  With the -l option set the compression
-scheme is a bit lossy to get more compression (see the description of dexqv in the
-DEXTRACTOR module).
+Adds .quiva streams to an existing DB "path".  The data comes from (a) the given .quiva
+files on the command line, or (b) those in the file specified by the -f option, or
+(c) the standard input if the -i option is given. The input files must be added in the
+same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
+FOO.quiva. The files can be added incrementally but must be added in the same order as
+their corresponding .fasta files. This is enforced by the program. With the -l option
+set the compression scheme is a bit lossy to get more compression (see the description
+of dexqv in the DEXTRACTOR module here).
 
 4. DB2quiva [-vU] <path:db>
 
@@ -199,27 +208,35 @@ The set of .quiva files within the given DB are recreated from the DB exactly as
 were input.  That is, this is a perfect inversion, including the reconstitution of the
 proper .quiva headers.  Because of this property, one can, if desired, delete the
 .quiva source files once they are in the DB as they can always be recreated from it.
+Entries imported from the standard input will be place in the faux file name given on
+import, or to the standard output if no name was given. 
 By .fastq convention each QV vector is output as a line without new-lines, and by
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
-5. fasta2DAM [-v] <path:dam> ( -f<file> | <input:fasta> ... )
+5. fasta2DAM [-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )
 
-Builds a map DB or DAM from the list of .fasta files following the map database name
-argument, or if the -f option is used, the list of .fasta files in <file>.  Any .fasta
-entry that has a run of N's in it will be split into separate "contig" entries and
-the interval of the contig in the original entry recorded.  The header for each .fasta
-entry is saved with the contigs created from it.
+Builds an initial map DB or DAM, or adds to an existing DAM, either (a) the list of
+.fasta files following the database name argument, or (b) the list of .fasta files in
+<file> if the -f option is used, or (c) entries piped from the standard input if the -i
+option is used.  If a faux file name, <name>, follows the -i option then all the input
+received is considered to have come from a file by the name of <name>.fasta by
+DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  Any .fasta
+entry that has a run of N's in it will be split into separate "contig" entries and the
+interval of the contig in the original entry recorded. The header for each .fasta entry
+is saved with the contigs created from it.
 
 6. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
 
 The set of .fasta files for the given map DB or DAM are recreated from the DAM
 exactly as they were input. That is, this is a perfect inversion, including the
 reconstitution of the proper .fasta headers and the concatenation of contigs with
-the proper number of N's between them. By default the output sequences are in lower
-case and 80 chars per line. The -U option specifies upper case should be used, and
-the characters per line, or line width, can be set to any positive value with
-the -w option.
+the proper number of N's between them to recreate scaffolds.
+Entries imported from the standard input will be place in the faux file name given on
+import, or to the standard output if no name was given.  By default the output
+sequences are in lower case and 80 chars per line. The -U option specifies upper case
+should be used, and the characters per line, or line width, can be set to any positive
+value with the -w option.
 
 7. DBsplit [-a] [-x<int>] [-s<int(200)>] <path:db|dam>
 

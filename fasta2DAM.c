@@ -35,7 +35,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] <path:string> ( -f<file> | <input:fasta> ... )";
+static char *Usage = "[-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
   char  *root, *pwd;
 
   FILE  *bases, *indx, *hdrs;
-  int64  boff, ioff, hoff;
+  int64  boff, ioff, hoff, noff;
 
   int    ifiles, ofiles;
   char **flist;
@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
   int     ureads;
   int64   offset, hdrset;
 
+  char   *PIPE;
   FILE   *IFILE;
   int     VERBOSE;
 
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
     ARG_INIT("fasta2DAM")
 
     IFILE = NULL;
+    PIPE  = NULL;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -155,6 +157,20 @@ int main(int argc, char *argv[])
                 exit (1);
               }
             break;
+          case 'i':
+            PIPE = argv[i]+2;
+            if (PIPE[0] != '\0')
+              { FILE *temp;
+
+                temp = fopen(PIPE,"w");
+                if (temp == NULL)
+                  { fprintf(stderr,"%s: Cannot create -i name '%s'\n",Prog_Name,argv[i]+2);
+                    exit (1);
+                  }
+                fclose(temp);
+                unlink(PIPE);
+              }
+            break;
         }
       else
         argv[j++] = argv[i];
@@ -162,7 +178,13 @@ int main(int argc, char *argv[])
 
     VERBOSE = flags['v'];
 
-    if ((IFILE == NULL && argc <= 2) || (IFILE != NULL && argc != 2))
+    if (IFILE != NULL && PIPE != NULL)
+      { fprintf(stderr,"%s: Cannot use both -f and -i together\n",Prog_Name);
+        exit (1);
+      }
+
+    if ( (IFILE == NULL && PIPE == NULL && argc <= 2) ||
+        ((IFILE != NULL || PIPE != NULL) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         exit (1);
       }
@@ -194,7 +216,9 @@ int main(int argc, char *argv[])
     if (dbname == NULL)
       exit (1);
 
-    if (IFILE == NULL)
+    if (PIPE != NULL)
+      ifiles = 1;
+    else if (IFILE == NULL)
       ifiles = argc-2;
     else
       { File_Iterator *ng;
@@ -240,7 +264,7 @@ int main(int argc, char *argv[])
       }
     else
       { if (fscanf(istub,DB_NFILE,&ofiles) != 1)
-          { fprintf(stderr,"%s: %s.dam is corrupted, read failed\n",root,Prog_Name);
+          { fprintf(stderr,"%s: %s.dam is corrupted, read failed 1\n",Prog_Name,root);
             goto error;
           }
 
@@ -251,7 +275,7 @@ int main(int argc, char *argv[])
           goto error;
 
         if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
-          { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+          { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
             goto error;
           }
         fseeko(bases,0,SEEK_END);
@@ -272,16 +296,18 @@ int main(int argc, char *argv[])
       goto error;
 
     fprintf(ostub,DB_NFILE,ofiles+ifiles);
+    noff = 0;
     for (i = 0; i < ofiles; i++)
       { int  last;
         char prolog[MAX_NAME], fname[MAX_NAME];
 
         if (fscanf(istub,DB_FDATA,&last,fname,prolog) != 3)
-          { fprintf(stderr,"%s: %s.dam is corrupted, read failed\n",root,Prog_Name);
+          { fprintf(stderr,"%s: %s.dam is corrupted, read failed 5(%d)\n",Prog_Name,root,i);
             goto error;
           }
         if ((flist[i] = Strdup(fname,"Adding to file list")) == NULL)
           goto error;
+        noff = ftello(ostub);
         fprintf(ostub,DB_FDATA,last,fname,prolog);
       }
   }
@@ -291,6 +317,7 @@ int main(int argc, char *argv[])
     int            rmax;
     HITS_READ      prec;
     char          *read;
+    int            append;
     int            c;
     File_Iterator *ng;
 
@@ -308,25 +335,44 @@ int main(int argc, char *argv[])
 
     //  For each .fasta file do:
 
-    ng = init_file_iterator(argc,argv,IFILE,2);
-    if (ng == NULL)
-      goto error;
+    if (PIPE == NULL)
+      { ng = init_file_iterator(argc,argv,IFILE,2);
+        if (ng == NULL)
+          goto error;
+      }
 
-    while (next_file(ng))
+    while (PIPE != NULL || next_file(ng))
       { FILE *input;
         char *path, *core;
         int   nline, eof, rlen;
 
-        if (ng->name == NULL) goto error;
+        //  Open it: <path>/<core>.fasta if file, stdin otherwise with core = PIPE or "stdout"
 
-        //  Open it: <path>/<core>.fasta, check that core is not too long,
-        //           and checking that it is not already in flist.
+        if (PIPE == NULL)
 
-        path  = PathTo(ng->name);
-        core  = Root(ng->name,".fasta");
-        if ((input = Fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
-          goto error;
-        free(path);
+          { if (ng->name == NULL) goto error;
+
+            path  = PathTo(ng->name);
+            core  = Root(ng->name,".fasta");
+            if ((input = Fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
+              goto error;
+            free(path);
+          }
+
+        else
+
+          { if (PIPE[0] == '\0')
+              core  = Strdup("stdout","Allocating file name");
+            else
+              core  = Strdup(PIPE,"Allocating file name");
+            if (core == NULL)
+              goto error;
+            input = stdin;
+          }
+
+        //  Check that core is not too long and name is unique or last source if PIPE'd
+        //    If PIPE'd and last source, then overwrite last file line of new stub file.
+
         if (strlen(core) >= MAX_NAME)
           { fprintf(stderr,"%s: File name over %d chars: '%.200s'\n",
                            Prog_Name,MAX_NAME,core);
@@ -335,12 +381,20 @@ int main(int argc, char *argv[])
 
         { int j;
 
-          for (j = 0; j < ofiles; j++)
-            if (strcmp(core,flist[j]) == 0)
-              { fprintf(stderr,"%s: File %s.fasta is already in database %s.dam\n",
-                               Prog_Name,core,Root(argv[1],".dam"));
-                goto error;
-              }
+          append = 0;
+          if (PIPE == NULL || (strcmp(core,"stdout") != 0 &&
+                 (ofiles == 0 || strcmp(core,flist[ofiles-1]) != 0)))
+            { for (j = 0; j < ofiles; j++)
+                if (strcmp(core,flist[j]) == 0)
+                  { fprintf(stderr,"%s: File %s.fasta is already in database %s.dam\n",
+                                   Prog_Name,core,Root(argv[1],".dam"));
+                    goto error;
+                  }
+            }
+	  else if (ofiles > 0 && strcmp(core,flist[ofiles-1]) == 0)
+            { fseeko(ostub,noff,SEEK_SET);
+              append = 1;
+            }
         }
 
         //  Get the header of the first line.  If the file is empty skip.
@@ -358,10 +412,15 @@ int main(int argc, char *argv[])
         //   Add the file name to flist
 
         if (VERBOSE)
-          { fprintf(stderr,"Adding '%s' ...\n",core);
+          { if (PIPE != NULL && PIPE[0] == '\0')
+              fprintf(stderr,"Adding scaffolds from stdio ...\n");
+            else
+              fprintf(stderr,"Adding '%s.fasta' ...\n",core);
             fflush(stderr);
           }
-        flist[ofiles++] = core;
+    
+        if (!append)
+          flist[ofiles++] = core;
 
         // Check that the first line is a header line
 
@@ -453,7 +512,10 @@ int main(int argc, char *argv[])
 
         fprintf(ostub,DB_FDATA,ureads,core,core);
 
-        fclose(input);
+        if (PIPE == NULL)
+          fclose(input);
+        else
+          break;
       }
 
     //  Update relevant fields in db record
@@ -496,13 +558,13 @@ int main(int argc, char *argv[])
       //    the indices of the last partial block)
 
       if (fscanf(istub,DB_NBLOCK,&nblock) != 1)
-        { fprintf(stderr,"%s: %s.dam is corrupted, read failed\n",root,Prog_Name);
+        { fprintf(stderr,"%s: %s.dam is corrupted, read failed 2\n",Prog_Name,root);
           goto error;
         }
       dbpos = ftello(ostub);
       fprintf(ostub,DB_NBLOCK,0);
       if (fscanf(istub,DB_PARAMS,&size,&cutoff,&allflag) != 3)
-        { fprintf(stderr,"%s: %s.dam is corrupted, read failed\n",root,Prog_Name);
+        { fprintf(stderr,"%s: %s.dam is corrupted, read failed 3\n",Prog_Name,root);
           goto error;
         }
       fprintf(ostub,DB_PARAMS,size,cutoff,allflag);
@@ -514,7 +576,7 @@ int main(int argc, char *argv[])
       nblock -= 1;
       for (i = 0; i <= nblock; i++)
         { if (fscanf(istub,DB_BDATA,&ufirst,&tfirst) != 2)
-            { fprintf(stderr,"%s: %s.dam is corrupted, read failed\n",root,Prog_Name);
+            { fprintf(stderr,"%s: %s.dam is corrupted, read failed 4\n",Prog_Name,root);
               goto error;
             }
           fprintf(ostub,DB_BDATA,ufirst,tfirst);
@@ -529,7 +591,7 @@ int main(int argc, char *argv[])
       ireads = 0;
       for (i = ufirst; i < ureads; i++)
         { if (fread(&record,sizeof(HITS_READ),1,indx) != 1)
-            { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",root,Prog_Name);
+            { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
               goto error;
             }
           rlen = record.rlen;
@@ -559,6 +621,9 @@ int main(int argc, char *argv[])
     }
   else
     db.treads = ureads;
+
+  rewind(ostub);
+  fprintf(ostub,DB_NFILE,ofiles);
 
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);   //  Write the finalized db record into .idx

@@ -123,12 +123,22 @@ int main(int argc, char *argv[])
         if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
           SYSTEM_ERROR
 
-        if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
-          exit (1);
+        if (strcmp(fname,"stdout") == 0)
+          { ofile  = stdout;
 
-        if (VERBOSE)
-          { fprintf(stderr,"Creating %s.fasta ...\n",fname);
-            fflush(stdout);
+            if (VERBOSE)
+              { fprintf(stderr,"Sending %d contigs to stdout ...\n",last-first);
+                fflush(stdout);
+              }
+          }
+        else
+          { if ((ofile = Fopen(Catenate(".","/",fname,".fasta"),"w")) == NULL)
+              exit (1);
+
+            if (VERBOSE)
+              { fprintf(stderr,"Creating %s.fasta ...\n",fname);
+                fflush(stdout);
+              }
           }
 
         //   For the relevant range of reads, write each to the file
@@ -187,6 +197,9 @@ int main(int argc, char *argv[])
           }
         if (wpos > 0)
           fprintf(ofile,"\n");
+
+        if (ofile != stdout)
+          fclose(ofile);
 
         first = last;
       }
