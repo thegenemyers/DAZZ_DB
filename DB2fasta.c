@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
   { HITS_READ  *reads;
     char        lname[MAX_NAME];
-    FILE       *ofile;
+    FILE       *ofile = NULL;
     int         f, first, last, ofirst, nfiles;
     char       *read;
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 
     reads = db->reads;
     read  = New_Read_Buffer(db);
-    first = 0;
+    first = ofirst = 0;
     for (f = 0; f < nfiles; f++)
       { int   i;
         char  prolog[MAX_NAME], fname[MAX_NAME];

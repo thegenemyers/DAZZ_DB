@@ -212,9 +212,10 @@ int main(int argc, char *argv[])
   //  Do a merged traversal of cell lines in .db stub file and .quiva files to be
   //    imported, driving the loop with the cell line #
 
-  { FILE          *input;
-    char          *path, *core;
-    File_Iterator *ng;
+  { FILE          *input = NULL;
+    char          *path = NULL;
+    char          *core = NULL;
+    File_Iterator *ng = NULL;
     char           lname[MAX_NAME];
     int            first, last, cline;
     int            cell;

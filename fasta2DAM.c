@@ -319,7 +319,7 @@ int main(int argc, char *argv[])
     char          *read;
     int            append;
     int            c;
-    File_Iterator *ng;
+    File_Iterator *ng = NULL;
 
     //  Buffer for accumulating .fasta sequence over multiple lines
 

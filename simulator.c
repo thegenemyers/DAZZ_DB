@@ -526,7 +526,7 @@ int main(int argc, char *argv[])
               }
             break;
           case 's':
-            ARG_POSITIVE(RSDEV,"Read length standard deviation")
+            ARG_NON_NEGATIVE(RSDEV,"Read length standard deviation")
             break;
           case 'x':
             ARG_NON_NEGATIVE(RSHORT,"Read length minimum")

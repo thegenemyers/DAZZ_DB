@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
     HITS_READ     *prec;
     char          *read;
     int            c;
-    File_Iterator *ng;
+    File_Iterator *ng = NULL;
 
     //  Buffer for reads all in the same well
 

@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
   { HITS_READ  *reads;
     char        lname[MAX_NAME];
-    FILE       *ofile;
+    FILE       *ofile = NULL;
     int         f, first, last, ofirst, nfiles;
     QVcoding   *coding;
     char      **entry;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 
     reads = db->reads;
     entry = New_QV_Buffer(db);
-    first = 0;
+    first = ofirst = 0;
     for (f = 0; f < nfiles; f++)
       { int   i;
         char  prolog[MAX_NAME], fname[MAX_NAME];
