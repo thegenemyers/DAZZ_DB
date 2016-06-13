@@ -252,6 +252,9 @@ space efficient in that their sub-index of the master .idx is computed on the fl
 when loaded, and the .bps and .qvs files (if a .db) of base pairs and quality values,
 respectively, is shared with the master DB.  Any relevant portions of tracks
 associated with the DB are also computed on the fly when loading a database block.
+If the -f option is set, the split is forced regardless of whether or not the DB in
+question has previously bin split, i.e. one is not interactively asked if they wish
+to proceed.
 
 8. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
 

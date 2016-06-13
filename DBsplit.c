@@ -32,7 +32,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-a] [-x<int>] [-s<float(200.)>] <path:db|dam>";
+static char *Usage = "[-af] [-x<int>] [-s<float(200.)>] <path:db|dam>";
 
 int main(int argc, char *argv[])
 { HITS_DB    db, dbs;
@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
   FILE      *dbfile, *ixfile;
   int        status;
 
+  int        FORCE;
   int        ALL;
   int        CUTOFF;
   int64      SIZE;
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("a")
+            ARG_FLAGS("af")
             break;
           case 'x':
             ARG_NON_NEGATIVE(CUTOFF,"Min read length cutoff")
@@ -76,8 +77,9 @@ int main(int argc, char *argv[])
         argv[j++] = argv[i];
     argc = j;
 
-    SIZE = size*1000000ll;
-    ALL  = flags['a'];
+    SIZE  = size*1000000ll;
+    ALL   = flags['a'];
+    FORCE = flags['f'];
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -124,7 +126,7 @@ int main(int argc, char *argv[])
     if (fread(&dbs,sizeof(HITS_DB),1,ixfile) != 1)
       SYSTEM_ERROR
 
-    if (dbs.cutoff >= 0)
+    if (dbs.cutoff >= 0 && !FORCE)
       { printf("You are about to overwrite the current partition settings.  This\n");
         printf("will invalidate any tracks, overlaps, and other derivative files.\n");
         printf("Are you sure you want to proceed? [Y/N] ");
