@@ -21,8 +21,8 @@
 #endif
 
 static char *Usage[] =
-    { "[-rhsiq] [-uU] [-m<track>]+",
-      "         <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
+    { "[-rhsiqp] [-uU] [-m<track>]+",
+      "          <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
 #define LAST_READ_SYMBOL   '$'
@@ -83,11 +83,21 @@ static int qv_map[51] =
     'Y'
   };
 
+static int prof_map[41] =
+  { '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C',
+    'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+    'N',
+  };
+
 int main(int argc, char *argv[])
 { HITS_DB    _db, *db = &_db;
   FILE       *hdrs = NULL;
   int64      *qv_idx = NULL;
   uint8      *qv_val = NULL;
+  int64      *pf_idx = NULL;
+  uint8      *pf_val = NULL;
 
   int         nfiles;
   char      **flist = NULL;
@@ -100,7 +110,7 @@ int main(int argc, char *argv[])
   FILE          *input = NULL;
 
   int         TRIM, UPPER;
-  int         DORED, DOSEQ, DOQVS, DOHDR, DOIQV, DAM;
+  int         DORED, DOSEQ, DOQVS, DOHDR, DOIQV, DOPRF, DAM;
 
   int          MMAX, MTOP;
   char       **MASK;
@@ -124,7 +134,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("hqrsiuU")
+            ARG_FLAGS("hpqrsiuU")
             break;
           case 'm':
             if (MTOP >= MMAX)
@@ -148,6 +158,7 @@ int main(int argc, char *argv[])
     DOSEQ = flags['s'];
     DOHDR = flags['h'];
     DOIQV = flags['i'];
+    DOPRF = flags['p'];
 
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage[0]);
@@ -157,6 +168,10 @@ int main(int argc, char *argv[])
 
     if ( ! TRIM && DOIQV)
       { fprintf(stderr,"%s: -i and -u are incompatible\n",Prog_Name);
+        exit (1);
+      }
+    if ( ! TRIM && DOPRF)
+      { fprintf(stderr,"%s: -p and -u are incompatible\n",Prog_Name);
         exit (1);
       }
   }
@@ -337,6 +352,24 @@ int main(int argc, char *argv[])
       qv_val = (uint8 *) track->data;
     }
 
+  if (DOPRF)
+    { int         status, kind;
+      HITS_TRACK *track;
+
+      status = Check_Track(db,"prof",&kind);
+      if (status == -2)
+        { fprintf(stderr,"%s: .prof-track does not exist for this db.\n",Prog_Name);
+          exit (1);
+        }
+      if (status == -1)
+        { fprintf(stderr,"%s: .prof-track not sync'd with db.\n",Prog_Name);
+          exit (1);
+        }
+      track = Load_Track(db,"prof");
+      pf_idx = (int64 *) track->anno;
+      pf_val = (uint8 *) track->data;
+    }
+
   //  Process read index arguments into a list of read ranges
 
   input_pts = 0;
@@ -431,6 +464,7 @@ int main(int argc, char *argv[])
     int64       noreads;
     int64       seqmax, seqtot;
     int64       iqvmax, iqvtot;
+    int64       prfmax, prftot;
     int64       hdrmax, hdrtot;
     int64       trkmax[MTOP], trktot[MTOP];
 
@@ -443,6 +477,9 @@ int main(int argc, char *argv[])
     seqtot = 0;
     iqvmax = 0;
     iqvtot = 0;
+    prfmax = 0;
+    prftot = 0;
+    hdrmax = 0;
     hdrmax = 0;
     hdrtot = 0;
     for (m = 0; m < MTOP; m++)
@@ -519,6 +556,10 @@ int main(int argc, char *argv[])
                   { fprintf(stderr,"%s: Cannot select subreads when -i is requested\n",Prog_Name);
                     exit (1);
                   }
+                if (DOPRF)
+                  { fprintf(stderr,"%s: Cannot select subreads when -p is requested\n",Prog_Name);
+                    exit (1);
+                  }
               }
             else
               { fst = 0;
@@ -536,6 +577,12 @@ int main(int argc, char *argv[])
                 if (ten > iqvmax)
                   iqvmax = ten;
                 iqvtot += ten;
+              }
+            if (DOPRF)
+              { int ten = pf_idx[i+1] - pf_idx[i];
+                if (ten > prfmax)
+                  prfmax = ten;
+                prftot += ten;
               }
           }
       }
@@ -557,6 +604,10 @@ int main(int argc, char *argv[])
     if (DOIQV)
       { printf("+ I %lld\n",iqvtot);
         printf("@ I %lld\n",iqvmax);
+      }
+    if (DOPRF)
+      { printf("+ P %lld\n",prftot);
+        printf("@ P %lld\n",prfmax);
       }
   }
 
@@ -684,6 +735,17 @@ int main(int argc, char *argv[])
                 printf("I %lld ",e-k);
                 while (k < e)
                   putchar(qv_map[qv_val[k++]]);
+                printf("\n");
+              }
+
+            if (DOPRF)
+              { int64 k, e;
+
+                k = pf_idx[i];
+                e = pf_idx[i+1];
+                printf("P %lld ",e-k);
+                while (k < e)
+                  putchar(prof_map[pf_val[k++]]);
                 printf("\n");
               }
 
