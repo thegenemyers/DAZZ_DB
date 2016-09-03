@@ -353,17 +353,18 @@ respectively.
     i # string       - Quiva insertion value string
     m # string       - Quiva merge value string
     s # string       - Quiva substitution value string
-    + X #            - Total amount of X (X = H or S or I or P or R or M)
-    @ X #            - Maximum amount of X (X = H or S or I or P)
+    + X #            - Total amount of X (X = H or S or I or P or R or M or T#)
+    @ X #            - Maximum amount of X (X = H or S or I or P or T#)
 
 1-code lines that begin with + or @ are always the first lines in the output.  They
 give size information about what is contained in the output.  That is '+ X #' gives
 the number of reads (X=R), the number of masks (X=M), or the total number of
-characters in all headers (X=H), sequences (X=S), or intrinsic quality vectors (X=I),
-or read profile vector (X=P).  And '@ X #' gives the maximum number of characters
-in any header (X=H), sequence (X=S), intrincic quality vector (X=I), or read profile
-vector (X=P).  The size numbers for the Quiva strings are identical to that for the
-sequence as they are all of the same length for any given entry.
+characters in all headers (X=H), sequences (X=S), intrinsic quality vectors (X=I),
+read profile vector (X=P), or track (X=T#).  And '@ X #' gives the maximum number of
+characters in any header (X=H), sequence (X=S), intrincic quality vector (X=I), read
+profile vector (X=P), or track (X=T#).  The size numbers for the Quiva strings are
+identical to that for the sequence as they are all of the same length for any
+given entry.
 
 12. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 

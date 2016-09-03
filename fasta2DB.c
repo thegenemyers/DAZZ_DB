@@ -396,6 +396,8 @@ int main(int argc, char *argv[])
         eof   = (fgets(read,MAX_NAME,input) == NULL);
         if (eof || strlen(read) < 1)
           { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+            if (input == stdin)
+              break;
             fclose(input);
             free(core);
             continue;
