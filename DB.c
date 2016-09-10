@@ -478,7 +478,7 @@ int Open_DB(char* path, HITS_DB *db)
       db->reads += 1;
       if (fread(db->reads,sizeof(HITS_READ),nreads,index) != (size_t) nreads)
         { EPRINTF(EPLACE,"%s: Index file (.idx) of %s is junk\n",Prog_Name,root);
-          free(db->reads);
+          free(db->reads-1);
           goto error2;
         }
     }
@@ -495,7 +495,7 @@ int Open_DB(char* path, HITS_DB *db)
       fseeko(index,sizeof(HITS_READ)*ufirst,SEEK_CUR);
       if (fread(reads,sizeof(HITS_READ),nreads,index) != (size_t) nreads)
         { EPRINTF(EPLACE,"%s: Index file (.idx) of %s is junk\n",Prog_Name,root);
-          free(reads);
+          free(reads-1);
           goto error2;
         }
 

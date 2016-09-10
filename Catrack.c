@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
     int   nfiles;
     char  data[1024];
     void *anno;
+    FILE *lfile = NULL;
 
     anno     = NULL;
     trackoff = 0;
@@ -98,13 +99,17 @@ int main(int argc, char *argv[])
 
     nfiles = 0;
     while (1)
-      { FILE *afile, *dfile;
+      { FILE *dfile, *afile;
         int   i, size, tracklen;
 
         afile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","anno")),"r");
         if (afile == NULL)
           break;
         dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),"r");
+
+        if (nfile > 0)
+          fclose(lfile);
+        lfile = afile;
 
         if (VERBOSE)
           { fprintf(stderr,"Concatenating %s%d.%s ...\n",prefix,nfiles+1,argv[2]);
@@ -210,7 +215,6 @@ int main(int argc, char *argv[])
         tracktot += tracklen;
         nfiles   += 1;
         if (dfile != NULL) fclose(dfile);
-        fclose(afile);
       }
   
     if (nfiles == 0)
@@ -219,7 +223,9 @@ int main(int argc, char *argv[])
         goto error;
       }
     else
-      { if (dout != NULL)
+      { char *byte;
+
+        if (dout != NULL)
           { if (tracksiz == 4)
               { int anno4 = trackoff;
                 fwrite(&anno4,sizeof(int),1,aout);
@@ -229,10 +235,10 @@ int main(int argc, char *argv[])
                 fwrite(&anno8,sizeof(int64),1,aout);
               }
           }
-        else
-          { fwrite(anno,tracksiz,1,aout);
-            free(anno);
-          }
+        while (fread(&byte,1,1,lfile) == 1)
+          fwrite(&byte,1,1,aout);
+        fclose(lfile);
+
         rewind(aout);
         fwrite(&tracktot,sizeof(int),1,aout);
         fwrite(&tracksiz,sizeof(int),1,aout);
