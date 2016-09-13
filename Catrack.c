@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
           break;
         dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),"r");
 
-        if (nfile > 0)
+        if (nfiles > 0)
           fclose(lfile);
         lfile = afile;
 
