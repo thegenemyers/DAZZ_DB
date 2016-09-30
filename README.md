@@ -1,77 +1,43 @@
+# The Dazzler Database Library
 
+## _Author:  Gene Myers_
+## _First:   July 17, 2013_
 
+For typeset documentation, examples of use, and design philosophy please go to
+my [blog](https://dazzlerblog.wordpress.com/command-guides/dazz_db-command-guide).
 
-*** PLEASE GO TO THE DAZZLER BLOG (https://dazzlerblog.wordpress.com) FOR TYPESET ***
-         DOCUMENTATION, EXAMPLES OF USE, AND DESIGN PHILOSOPHY.
-
-
-/************************************************************************************\
-
-UPGRADE & DEVELOPER NOTES ! ! !
-
-  If you have already built a big database and don't want to rebuild it, but do want
-to use a more recent version of the software that entails a change to the data
-structures (currently the updates on Sept 25, 2014 and December 31, 2014), please note
-the routines DBupgrade.Sep.25.2014 and DBupgrade.Dec.31.2014.  These take a DB, say X,
-as an argument, and produce a file .X.ndx which you should then replace .X.idx with.
-To update a very old DB to today's version you will need to run both in sequence.
-
-  Both of the upgrade programs can be made with "make" but are not by default created
-when make is called without an argument.
-
-  For those interested in the details, on September 25, the "beg" and "end" fields went
-from shorts to ints, and on December 31, the "beg" and "end" fields became "fpulse" and
-"rlen", respectively where fpulse = beg and rlen = end-beg.
-
-  Unfortunately, the .dust track formats also changed on Dec.31.2014 and Jan.1.2015.  To
-upgrade said use DUSTupgrade.Jan.1.2015.  This program takes a DB, say X as an argument
-and produces .X.next.anno and .X.next.data which you should then replace .X.dust.* with.
-Of course, it may, if the DB is not too big, be easier and simpler to just rerun DBdust.
-
-  Developers should also note carefully that the calling conventions to Open_DB have
-changed and there are new utility routines Number_Digits and Check_Track.
-
-\************************************************************************************/
-
-
-                The Dazzler Database Library
-
-                            Author:  Gene Myers
-                            First:   July 17, 2013
-                            Current: December 31, 2014
-
-  To facilitate the multiple phases of the dazzler assembler, we organize all the read
+To facilitate the multiple phases of the dazzler assembler, we organize all the read
 data into what is effectively a "database" of the reads and their meta-information.
 The design goals for this data base are as follows:
 
-(1) The database stores the source Pacbio read information in such a way that it can
-       recreate the original input data, thus permitting a user to remove the
-       (effectively redundant) source files.  This avoids duplicating the same data,
-       once in the source file and once in the database.
+1. The database stores the source Pacbio read information in such a way that it can
+recreate the original input data, thus permitting a user to remove the
+(effectively redundant) source files.  This avoids duplicating the same data,
+once in the source file and once in the database.
 
-(2) The data base can be built up incrementally, that is new sequence data can be added
-       to the data base over time.
+2. The data base can be built up incrementally, that is new sequence data can be added
+to the data base over time.
 
-(3) The data base flexibly allows one to store any meta-data desired for reads.  This
-       is accomplished with the concept of *tracks* that implementors can add as they
-       need them.
+3. The data base flexibly allows one to store any meta-data desired for reads.  This
+is accomplished with the concept of *tracks* that implementors can add as they
+need them.
 
-(4) The data is held in a compressed form equivalent to the .dexta and .dexqv files of
-       the data extraction module.  Both the .fasta and .quiva information for each
-       read is held in the data base and can be recreated from it.  The .quiva
-       information can be added separately and later on if desired.
+4. The data is held in a compressed form equivalent to the .dexta and .dexqv files of
+the data extraction module.  Both the .fasta and .quiva information for each
+read is held in the data base and can be recreated from it.  The .quiva
+information can be added separately and later on if desired.
 
-(5) To facilitate job parallel, cluster operation of the phases of our assembler, the
-       data base has a concept of a *current partitioning* in which all the reads that
-       are over a given length and optionally unique to a well, are divided up into
-       *blocks* containing roughly a given number of bases, except possibly the last
-       block which may have a short count.  Often programs con be run on blocks or
-       pairs of blocks and each such job is reasonably well balanced as the blocks are
-       all the same size.  One must be careful about changing the partition during an
-       assembly as doing so can void the structural validity of any interim
-       block-based results.
+5. To facilitate job parallel, cluster operation of the phases of our assembler, the
+data base has a concept of a *current partitioning* in which all the reads that
+are over a given length and optionally unique to a well, are divided up into
+*blocks* containing roughly a given number of bases, except possibly the last
+block which may have a short count.  Often programs con be run on blocks or
+pairs of blocks and each such job is reasonably well balanced as the blocks are
+all the same size.  One must be careful about changing the partition during an
+assembly as doing so can void the structural validity of any interim
+block-based results.
 
-  A Dazzler DB consists of one named, *visible* file, e.g. FOO.db, and several
+A Dazzler DB consists of one named, *visible* file, e.g. FOO.db, and several
 *invisible* secondary files encoding various elements of the DB.  The secondary files
 are "invisible" to the UNIX OS in the sense that they begin with a "." and hence are
 not listed by "ls" unless one specifies the -a flag.  We chose to do this so that when
@@ -79,31 +45,31 @@ a user lists the contents of a directory they just see a single name, e.g. FOO.d
 is the one used to refer to the DB in commands.  The files associated with a database
 named, say FOO,  are as follows:
 
-(a) "FOO.db": a text file containing
-                 (i)  the list of input files added to the database so far, and
-                 (ii) how to partition the database into blocks (if the partition
-                       parameters have been set).
+* "FOO.db": a text file containing
+  1. the list of input files added to the database so far, and
+  2. how to partition the database into blocks (if the partition
+     parameters have been set).
 
-(b) ".FOO.idx": a binary "index" of all the meta-data about each read allowing, for
-                  example, one to randomly access a read's sequence (in the store
-                  ".FOO.bps").  It is 28N + 88 bytes in size where N is the number of
-                  reads in the database.
+* ".FOO.idx": a binary "index" of all the meta-data about each read allowing, for
+  example, one to randomly access a read's sequence (in the store
+  ".FOO.bps").  It is 28N + 88 bytes in size where N is the number of
+  reads in the database.
 
-(c) ".FOO.bps": a binary compressed "store" of all the DNA sequences.  It is M/4 bytes
-                  in size where M is the total number of base pairs in the database.
+* ".FOO.bps": a binary compressed "store" of all the DNA sequences.  It is M/4 bytes
+  in size where M is the total number of base pairs in the database.
 
-(d) ".FOO.qvs": a binary compressed "store" of the 5 Pacbio quality value streams for
-                  the reads.  Its size is roughly 5/3M bytes depending on the
-                  compression acheived.  This file only exists if .quiva files have
-                  been added to the database.
+* ".FOO.qvs": a binary compressed "store" of the 5 Pacbio quality value streams for
+  the reads.  Its size is roughly 5/3M bytes depending on the
+  compression acheived.  This file only exists if .quiva files have
+  been added to the database.
 
-(e) ".FOO.<track>.anno": a *track* containing customized meta-data for each read.  For
-    ".FOO.<track>.data"  example, the DBdust command annotates low complexity intervals
-                         of reads and records the intervals for each read in two files
-                         .FOO.dust.anno & .FOO.dust.data.  Any kind of information
-                         about a read can be recorded, such as micro-sats, repeat
-                         intervals, corrected sequence, etc.  Specific tracks will be
-                         described as modules that produce them are released.
+* ".FOO.\<track\>.[anno,data]": a *track* containing customized meta-data for each read.  For
+  example, the DBdust command annotates low complexity intervals
+  of reads and records the intervals for each read in two files
+  .FOO.dust.anno & .FOO.dust.data.  Any kind of information
+  about a read can be recorded, such as micro-sats, repeat
+  intervals, corrected sequence, etc.  Specific tracks will be
+  described as modules that produce them are released.
 
 If one does not like the convention of the secondary files being invisible, then
 un-defining the constant HIDE_FILES in DB.h before compiling the library, creates
@@ -111,21 +77,21 @@ commands that do not place a prefixing "." before secondary file names, e.g. FOO
 instead of .FOO.idx.  One then sees all the files realizing a DB when listing the
 contents of a directory with ls.
 
-  While a Dazzler DB holds a collection of Pacbio reads, a Dazzler map DB or DAM holds
+While a Dazzler DB holds a collection of Pacbio reads, a Dazzler map DB or DAM holds
 a collection of contigs from a reference genome assembly.  This special type of DB has
 been introduced in order to facilitate the mapping of reads to an assembly and has
 been given the suffix .dam to distinguish it from an ordinary DB.  It is structurally
 identical to a .db except:
 
-(a) there is no concept of quality values, and hence no .FOO.qvs file.
+* there is no concept of quality values, and hence no .FOO.qvs file.
 
-(b) every .fasta scaffold (a sequence with runs of N's between contigs estimating the
-    length of the gap) is broken into a separate contig sequence in the DB and the
-    header for each scaffold is retained in a new .FOO.hdr file.
+* every .fasta scaffold (a sequence with runs of N's between contigs estimating the
+  length of the gap) is broken into a separate contig sequence in the DB and the
+  header for each scaffold is retained in a new .FOO.hdr file.
 
-(c) the original and first and last pulse fields in the meta-data records held in
-    .FOO.idx, hold instead the contig number and the interval of the contig within
-    its original scaffold sequence.
+* the original and first and last pulse fields in the meta-data records held in
+  .FOO.idx, hold instead the contig number and the interval of the contig within
+  its original scaffold sequence.
 
 A map DB can equally well be the argument of many of the commands below that operate
 on normal DBs.  In general, a .dam can be an argument anywhere a .db can, with the
@@ -134,7 +100,7 @@ the special routines fasta2DAM and DAM2fasta that create a DAM and reverse said,
 just like the pair fasta2DB and DB2fasta do for a normal DB.  So in general when we
 refer to a database we are referring to either a DB or a DAM.
 
-  The command DBsplit sets or resets the current partition for a database which is
+The command DBsplit sets or resets the current partition for a database which is
 determined by 3 parameters: (i) the total number of basepairs to place in each block,
 (ii) the minimum read length of reads to include within a block, and (iii) whether or
 not to only include the longest read from a given well or all reads from a well (NB:
@@ -161,13 +127,15 @@ a command such as DBshow.
 All programs add suffixes (e.g. .db) as needed.  The commands of the database library
 are currently as follows:
 
+```
 1. fasta2DB [-v] <path:db> ( -f<file> | -i[<name>] | <input:fasta> ... )
+```
 
 Builds an initial data base, or adds to an existing database, either (a) the list of
 .fasta files following the database name argument, or (b) the list of .fasta files in
-<file> if the -f option is used, or (c) entries piped from the standard input if the
--i option is used.  If a faux file name, <name>, follows the -i option then all the
-input received is considered to have come from a file by the name of <name>.fasta by
+\<file\> if the -f option is used, or (c) entries piped from the standard input if the
+-i option is used.  If a faux file name, \<name\>, follows the -i option then all the
+input received is considered to have come from a file by the name of \<name\>.fasta by
 DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  The SMRT cells
 in a given named input (i.e. all sources other than -i without a name) can only be
 added consecutively to the DB (this is checked by the command). The .fasta headers must
@@ -179,7 +147,9 @@ partitioning of the database is updated to include the new data.  A file may con
 the data from multiple SMRT cells provided the reads for each SMRT cell are consecutive
 in the file.
 
+```
 2. DB2fasta [-vU] [-w<int(80)>] <path:db>
+```
 
 The set of .fasta files for the given DB are recreated from the DB exactly as they were
 input.  That is, this is a perfect inversion, including the reconstitution of the
@@ -191,7 +161,9 @@ By default the output sequences are in lower case and 80 chars per line.  The -U
 specifies upper case should be used, and the characters per line, or line width, can be
 set to any positive value with the -w option.
 
+```
 3. quiva2DB [-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )
+```
 
 Adds .quiva streams to an existing DB "path".  The data comes from (a) the given .quiva
 files on the command line, or (b) those in the file specified by the -f option, or
@@ -202,7 +174,9 @@ their corresponding .fasta files. This is enforced by the program. With the -l o
 set the compression scheme is a bit lossy to get more compression (see the description
 of dexqv in the DEXTRACTOR module here).
 
+```
 4. DB2quiva [-vU] <path:db>
+```
 
 The set of .quiva files within the given DB are recreated from the DB exactly as they
 were input.  That is, this is a perfect inversion, including the reconstitution of the
@@ -214,19 +188,23 @@ By .fastq convention each QV vector is output as a line without new-lines, and b
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
+```
 5. fasta2DAM [-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )
+```
 
 Builds an initial map DB or DAM, or adds to an existing DAM, either (a) the list of
 .fasta files following the database name argument, or (b) the list of .fasta files in
-<file> if the -f option is used, or (c) entries piped from the standard input if the -i
-option is used.  If a faux file name, <name>, follows the -i option then all the input
-received is considered to have come from a file by the name of <name>.fasta by
+\<file\> if the -f option is used, or (c) entries piped from the standard input if the -i
+option is used.  If a faux file name, \<name\>, follows the -i option then all the input
+received is considered to have come from a file by the name of \<name\>.fasta by
 DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  Any .fasta
 entry that has a run of N's in it will be split into separate "contig" entries and the
 interval of the contig in the original entry recorded. The header for each .fasta entry
 is saved with the contigs created from it.
 
+```
 6. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
+```
 
 The set of .fasta files for the given map DB or DAM are recreated from the DAM
 exactly as they were input. That is, this is a perfect inversion, including the
@@ -238,10 +216,12 @@ sequences are in lower case and 80 chars per line. The -U option specifies upper
 should be used, and the characters per line, or line width, can be set to any positive
 value with the -w option.
 
+```
 7. DBsplit [-a] [-x<int>] [-s<int(200)>] <path:db|dam>
+```
 
-Divide the database <path>.db or <path>.dam conceptually into a series of blocks
-referable to on the command line as <path>.1, <path>.2, ...  If the -x option is set
+Divide the database \<path\>.db or \<path\>.dam conceptually into a series of blocks
+referable to on the command line as \<path\>.1, \<path\>.2, ...  If the -x option is set
 then all reads less than the given length are ignored, and if the -a option is not
 set then secondary reads from a given well are also ignored.  The remaining reads,
 constituting what we call the trimmed DB, are split amongst the blocks so that each
@@ -256,10 +236,12 @@ If the -f option is set, the split is forced regardless of whether or not the DB
 question has previously bin split, i.e. one is not interactively asked if they wish
 to proceed.
 
+```
 8. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
+```
 
-Runs the symmetric DUST algorithm over the reads in the untrimmed DB <path>.db or
-<path>.dam producing a track .<path>.dust[.anno,.data] that marks all intervals of low
+Runs the symmetric DUST algorithm over the reads in the untrimmed DB \<path\>.db or
+\<path\>.dam producing a track .\<path\>.dust[.anno,.data] that marks all intervals of low
 complexity sequence, where the scan window is of size -w, the threshold for being a
 low-complexity interval is -t, and only perfect intervals of size greater than -m are
 recorded.  If the -b option is set then the definition of low complexity takes into
@@ -275,17 +257,21 @@ and .FOO.3.dust.data, given FOO.3 on the command line.  We call this a *block tr
 This permits job parallelism in block-sized chunks, and the resulting sequence of
 block tracks can then be merged into a track for the entire untrimmed DB with Catrack.
 
+```
 9. Catrack [-v] <path:db|dam> <track:name>
+```
 
-Find all block tracks of the form .<path>.#.<track>... and merge them into a single
-track, .<path>.<track>..., for the given DB or DAM.   The block track files must all
+Find all block tracks of the form .\<path\>.#.\<track\>... and merge them into a single
+track, .\<path\>.\<track\>..., for the given DB or DAM.   The block track files must all
 encode the same kind of track data (this is checked), and the files must exist for
 block 1, 2, 3, ... up to the last block number.
 
+```
 10. DBshow [-unqUQ] [-w<int(80)>] [-m<track>]+
                     <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
+```
 
-Displays the requested reads in the database <path>.db or <path>.dam.  By default the
+Displays the requested reads in the database \<path\>.db or \<path\>.dam.  By default the
 command applies to the trimmed database, but if -u is set then the entire DB is used.
 If no read arguments are given then every read in the database or database block is
 displayed.  Otherwise the input file or the list of supplied integer ranges give the
@@ -315,8 +301,10 @@ The .fasta or .quiva files that are output can be converted into a DB by fasta2D
 and quiva2DB (if the -q and -n options are not set and no -m options are set),
 giving one a simple way to make a DB of a subset of the reads for testing purposes.
 
+```
 12. DBdump [-rhsiqp] [-uU] [-m<track>]+
                      <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
+```
 
 Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
 which information to show about them including any mask tracks.  The difference is
@@ -326,7 +314,7 @@ read number be displayed (useful if only a subset of reads is requested).  -h pr
 the header information which is the source file name, well #, and pulse range.
 -s requests the sequence be output, -i requests that the intrinsic quality values be
 output, -q requests that the 5 quiva sequences be output, -p requests the repeat
-profile be output (if available), and -m<track> requests that mask <track> be output.
+profile be output (if available), and -m\<track\> requests that mask \<track\> be output.
 Set -u if you want data from the untrimmed database (the default is trimmed) and
 set -U if you'd like upper-case letter used in the DNA sequence strings.
 
@@ -341,6 +329,7 @@ displayed as an alphabetic string where 'a' is 0, 'b' is '1', ... 'z' is 25, 'A'
 '_' denotes 0 repetitions, and then 'a' through 'N' denote the values 1 through 40,
 respectively.  
 
+```
     R #              - read number
     H # string       - original file name string (header)
     L # # #          - location: well, pulse start, pulse end
@@ -355,6 +344,7 @@ respectively.
     s # string       - Quiva substitution value string
     + X #            - Total amount of X (X = H or S or I or P or R or M or T#)
     @ X #            - Maximum amount of X (X = H or S or I or P or T#)
+```
 
 1-code lines that begin with + or @ are always the first lines in the output.  They
 give size information about what is contained in the output.  That is '+ X #' gives
@@ -366,25 +356,31 @@ profile vector (X=P), or track (X=T#).  The size numbers for the Quiva strings a
 identical to that for the sequence as they are all of the same length for any
 given entry.
 
+```
 12. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
+```
 
-Show overview statistics for all the reads in the trimmed data base <path>.db or
-<path>.dam, including a histogram of read lengths where the bucket size is set
+Show overview statistics for all the reads in the trimmed data base \<path\>.db or
+\<path\>.dam, including a histogram of read lengths where the bucket size is set
 with the -b option (default 1000).  If the -u option is given then the untrimmed
 database is summarized.  If the -n option is given then the histogran of read lengths
 is not displayed.  Any track such as a "dust" track that gives a series of
 intervals along the read can be specified with the -m option in which case a summary
 and a histogram of the interval lengths is displayed.
 
+```
 13. DBrm <path:db|dam> ...
+```
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
 
+```
 14.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
                                   [-w<int(80)>] [-r<int>] [-M<file>]
+```
 
 In addition to the DB commands we include here, somewhat tangentially, a simple
 simulator that generates synthetic reads over a given genome reference contained in a
@@ -412,10 +408,12 @@ Finally, the -M option requests that the scaffold and coordinates within said sc
 from which each read has been sampled are written to the indicated file, one line per
 read, ASCII encoded. This "map" file essential tells one where every read belongs in
 an assembly and is very useful for debugging and testing purposes. If the map line for
-a read is say 's b e' then if b < e the read is a perturbed copy of s[b,e] in the
+a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in the
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
+```
 15. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+```
 
 Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.
 Output the sequence to the standard output in .fasta format.  Use uppercase letters if
@@ -426,10 +424,9 @@ generation process so that one can reproducibly generate the same sequence. If t
 parameter is missing, then the job id of the invocation seeds the random number
 generator effectively guaranteeing a different sequence with each invocation.
 
-Example:
+Example: A small complete example of most of the commands above. 
 
-     A small complete example of most of the commands above. 
-
+```
 > rangen 1.0 >R.fasta           //  Generate a randome 1Mbp sequence R.fasta
 > fasta2DAM R R.fasta           //  Load it into a .dam DB R.dam
 > simulator R -c20. >G.fasta    //  Sample a 20x data sets of the random geneome R
@@ -501,3 +498,4 @@ size =        11 cutoff =         0 all = 0
          0         0
       1011      1011
       1836      1836
+```
