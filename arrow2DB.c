@@ -1,8 +1,8 @@
 /*******************************************************************************************
  *
- *  Adds the given .quiva files to an existing DB "path".  The input files must be added in
+ *  Adds the given .arrow files to an existing DB "path".  The input files must be added in
  *  the same order as the .fasta files were and have the same root names, e.g. FOO.fasta
- *  and FOO.quiva.  The files can be added incrementally but must be added in the same order  
+ *  and FOO.arrow.  The files can be added incrementally but must be added in the same order  
  *  as the .fasta files.  This is enforced by the program.  With the -l option set the
  *  compression scheme is a bit lossy to get more compression (see the description of dexqv
  *  in the DEXTRACTOR module).
@@ -31,7 +31,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )";
+static char *Usage = "[-v] <path:db> ( -f<file> | -i | <input:arrow> ... )";
 
 typedef struct
   { int    argc;
@@ -95,18 +95,14 @@ int main(int argc, char *argv[])
 { FILE      *istub;
   char      *root, *pwd;
 
-  FILE      *quiva, *indx;
-  int64      coff;
+  FILE      *arrow, *indx;
+  int64      boff;
 
   HITS_DB    db;
   HITS_READ *reads;
   int        nfiles;
 
-  FILE      *temp;
-  char      *tname;
-
   int        VERBOSE;
-  int        LOSSY;
   int        PIPE;
   FILE      *INFILE;
 
@@ -115,7 +111,7 @@ int main(int argc, char *argv[])
   { int   i, j, k;
     int   flags[128];
 
-    ARG_INIT("quiva2DB")
+    ARG_INIT("arrow2DB")
 
     INFILE = NULL;
 
@@ -139,7 +135,6 @@ int main(int argc, char *argv[])
     argc = j;
 
     VERBOSE = flags['v'];
-    LOSSY   = flags['l'];
     PIPE    = flags['i'];
 
     if (INFILE != NULL && PIPE)
@@ -154,16 +149,14 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Open DB stub file, index, and .qvs file for appending.  Load db and read records,
-  //    get number of cells from stub file, and note current offset to end of .qvs
+  //  Open DB stub file, index, and .arw file for appending.  Load db and read records,
+  //    get number of cells from stub file, and note current offset to end of .arw
 
   root   = Root(argv[1],".db");
   pwd    = PathTo(argv[1]);
   istub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
   if (istub == NULL)
-    { fprintf(stderr,"%s",Ebuffer);
-      exit (1);
-    }
+    exit (1);
   if (fscanf(istub,DB_NFILE,&nfiles) != 1)
     { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",Prog_Name,root);
       exit (1);
@@ -171,65 +164,62 @@ int main(int argc, char *argv[])
 
   indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
   if (indx == NULL)
-    { fprintf(stderr,"%s",Ebuffer);
-      exit (1);
-    }
+    exit (1);
   if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
     { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
-      exit (1);
-    }
-  if ((db.allarr & DB_ARROW) != 0)
-    { fprintf(stderr,"%s: Database %s has Arrow data!\n",Prog_Name,root);
       exit (1);
     }
 
   reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
   if (reads == NULL)
-    { fprintf(stderr,"%s",Ebuffer);
-      exit (1);
-    }
+    exit (1);
   if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
     { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
       exit (1);
     }
 
-  quiva = NULL;
-  temp  = NULL;
-  coff  = 0;
+  if (reads[0].coff >= 0 && (db.allarr & DB_ARROW) == 0)
+    { fprintf(stderr,"%s: Database %s has Quiver data!\n",Prog_Name,root);
+      exit (1);
+    }
+
+  arrow = NULL;
+  boff  = 0;
 
   if (reads[0].coff < 0)
-    quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"w");
+    arrow = Fopen(Catenate(pwd,PATHSEP,root,".arw"),"w");
   else
-    quiva = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"r+");
+    arrow = Fopen(Catenate(pwd,PATHSEP,root,".arw"),"r+");
 
-  tname = Strdup(Catenate(".",PATHSEP,root,Numbered_Suffix("",getpid(),".tmp")),
-                 "Allocating temporary name");
-  temp = Fopen(tname,"w+");
+  if (arrow == NULL)
+    goto error;
+  fseeko(arrow,0,SEEK_END);
+  boff = ftello(arrow);
 
-  if (quiva == NULL || temp == NULL)
-    { fprintf(stderr,"%s",Ebuffer);
-      goto error;
-    }
-  fseeko(quiva,0,SEEK_END);
-  coff = ftello(quiva);
-
-  //  Do a merged traversal of cell lines in .db stub file and .quiva files to be
+  //  Do a merged traversal of cell lines in .db stub file and .arrow files to be
   //    imported, driving the loop with the cell line #
 
   { FILE          *input = NULL;
     char          *path = NULL;
     char          *core = NULL;
+    char          *read;
+    int            rmax, rlen, eof;
     File_Iterator *ng = NULL;
     char           lname[MAX_NAME];
     int            first, last, cline;
     int            cell;
 
+    //  Buffer for accumulating .arrow sequence over multiple lines
+
+    rmax  = MAX_NAME + 60000;
+    read  = (char *) Malloc(rmax+1,"Allocating line buffer");
+    if (read == NULL)
+      goto error;
+
     if (!PIPE)
       { ng = init_file_iterator(argc,argv,INFILE,2);
         if (ng == NULL)
-          { fprintf(stderr,"%s",Ebuffer);
-            goto error;
-          }
+          goto error;
       }
 
     for (cell = 0; cell < nfiles; cell++)
@@ -237,7 +227,7 @@ int main(int argc, char *argv[])
 
         if (cell == 0)
 
-          //  First addition, a pipe: find the first cell that does not have .quiva's yet
+          //  First addition, a pipe: find the first cell that does not have .arrow's yet
           //     (error if none) and set input source to stdin.
 
           if (PIPE)
@@ -253,23 +243,23 @@ int main(int argc, char *argv[])
                   cell += 1;
                 }
               if (cell >= nfiles)
-                { fprintf(stderr,"%s: All .quiva's have already been added !?\n",Prog_Name);
+                { fprintf(stderr,"%s: All .arrows's have already been added !?\n",Prog_Name);
                   goto error;
                 }
 
               input = stdin;
 
               if (VERBOSE)
-                { fprintf(stderr,"Adding quiva's from stdin ...\n");
+                { fprintf(stderr,"Adding arrows's from stdin ...\n");
                   fflush(stderr);
                 }
               cline = 0;
             }
 
-          //  First addition, not a pipe: then get first .quiva file name (error if not one) to
+          //  First addition, not a pipe: then get first .arrow file name (error if not one) to
           //    add, find the first cell name whose file name matches (error if none), check that
-          //    the previous .quiva's have been added and this is the next slot.  Then open
-          //    the .quiva file for compression
+          //    the previous .arrow's have been added and this is the next slot.  Then open
+          //    the .arrow file for compression
 
           else
             { if (! next_file(ng))
@@ -277,16 +267,12 @@ int main(int argc, char *argv[])
                   goto error;
                 }
               if (ng->name == NULL)
-                { fprintf(stderr,"%s",Ebuffer);
-                  goto error;
-                }
+                goto error;
   
-              core = Root(ng->name,".quiva");
+              core = Root(ng->name,".arrow");
               path = PathTo(ng->name);
-              if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
-                { fprintf(stderr,"%s",Ebuffer);
-                  goto error;
-                }
+              if ((input = Fopen(Catenate(path,"/",core,".arrow"),"r")) == NULL)
+                goto error;
   
               first = 0;
               while (cell < nfiles)
@@ -305,25 +291,25 @@ int main(int argc, char *argv[])
                 }
         
               if (first > 0 && reads[first-1].coff < 0)
-                { fprintf(stderr,"%s: Predecessor of %s.quiva has not been added yet\n",
+                { fprintf(stderr,"%s: Predecessor of %s.arrow has not been added yet\n",
                                  Prog_Name,core);
                   goto error;
                 }
               if (reads[first].coff >= 0)
-                { fprintf(stderr,"%s: %s.quiva has already been added\n",Prog_Name,core);
+                { fprintf(stderr,"%s: %s.arrow has already been added\n",Prog_Name,core);
                   goto error;
                 }
   
               if (VERBOSE)
-                { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
+                { fprintf(stderr,"Adding '%s.arrow' ...\n",core);
                   fflush(stderr);
                 }
               cline = 0;
             }
 
         //  Not the first addition: get next cell line.  If not a pipe and the file name is new,
-        //    then close the current .quiva, open the next one and after ensuring the names
-        //    match, open it for compression
+        //    then close the current .arrow, open the next one and after ensuring the names
+        //    match, open it for incorporation
 
         else
           { first = last;  
@@ -339,8 +325,8 @@ int main(int argc, char *argv[])
                 ungetc(c,input);
               }
             else if (strcmp(lname,fname) != 0)
-              { if (fgetc(input) != EOF)
-                  { fprintf(stderr,"%s: Too many reads in %s.quiva while handling %s.fasta\n",
+              { if ( ! eof)
+                  { fprintf(stderr,"%s: Too many reads in %s.arrow while handling %s.fasta\n",
                                    Prog_Name,core,fname);
                     goto error;
                   }
@@ -352,16 +338,12 @@ int main(int argc, char *argv[])
                 if ( ! next_file(ng))
                   break;
                 if (ng->name == NULL)
-                  { fprintf(stderr,"%s",Ebuffer);
-                    goto error;
-                  }
+                  goto error;
 
                 path = PathTo(ng->name);
-                core = Root(ng->name,".quiva");
-                if ((input = Fopen(Catenate(path,"/",core,".quiva"),"r")) == NULL)
-                  { fprintf(stderr,"%s",Ebuffer);
-                    goto error;
-                  }
+                core = Root(ng->name,".arrow");
+                if ((input = Fopen(Catenate(path,"/",core,".arrow"),"r")) == NULL)
+                  goto error;
 
                 if (strcmp(core,fname) != 0)
                   { fprintf(stderr,"%s: Files not being added in order (expect %s, given %s)\n",
@@ -370,92 +352,128 @@ int main(int argc, char *argv[])
                   }
 
                 if (VERBOSE)
-                  { fprintf(stderr,"Adding '%s.quiva' ...\n",core);
+                  { fprintf(stderr,"Adding '%s.arrow' ...\n",core);
                     fflush(stderr);
                   }
                 cline = 0;
               }
           }
 
-        //  Compress reads [first..last) from open .quiva appending to .qvs and record
-        //    offset in .coff field of reads (offset of first in a cell is to the compression
-        //    table).
+        //  If first cell or source is a new file, then start IO
 
-        { int64     qpos;
-          QVcoding *coding;
-          int       i, s;
+        if (cline == 0)
+          {
+            // Read in first line and make sure it is a header in PACBIO format.
 
-          rewind(temp);
-          if (ftruncate(fileno(temp),0) < 0)
-            { fprintf(stderr,"%s: System error: could not truncate temporary file\n",Prog_Name);
-              goto error;
-            }
-          Set_QV_Line(cline);
-          s = QVcoding_Scan(input,last-first,temp);
-          if (s < 0)
-            { fprintf(stderr,"%s",Ebuffer);
-              goto error;
-            }
-          if (s != last-first)
-            { if (PIPE)
-                fprintf(stderr,"%s: Insufficient # of reads on input while handling %s.fasta\n",
-                               Prog_Name,fname);
-              else
-                fprintf(stderr,"%s: Insufficient # of reads in %s.quiva while handling %s.fasta\n",
-                               Prog_Name,core,fname);
-              goto error;
-            }
+            rlen = 0;
+            eof  = (fgets(read,MAX_NAME,input) == NULL);
+            if (read[strlen(read)-1] != '\n')
+              { fprintf(stderr,"File %s.arrow, Line 1: Fasta line is too long (> %d chars)\n",
+                               core,MAX_NAME-2);
+                goto error;
+              }
+            if (!eof && read[0] != '>')
+              { fprintf(stderr,"File %s.arrow, Line 1: First header in arrow file is missing\n",
+                                core);
+                goto error;
+              }
+          }
 
-          coding = Create_QVcoding(LOSSY);
-          if (coding == NULL)
-            { fprintf(stderr,"%s",Ebuffer);
-              goto error;
-            }
+        //  Compress reads [first..last) from open .arrow appending to .arw and record
+        //    snr in .coff field of reads (offset is the same as for the DNA sequence, .boff)
 
-          coding->prefix = Strdup(".qvs","Allocating header prefix");
-          if (coding->prefix == NULL)
-            { fprintf(stderr,"%s",Ebuffer);
-              goto error;
-            }
+        { int i, x;
 
-          qpos = ftello(quiva);
-          Write_QVcoding(quiva,coding);
-
-          //  Then compress and append to the .qvs each compressed QV entry
- 
-          rewind(temp);
-          Set_QV_Line(cline);
           for (i = first; i < last; i++)
-            { s = Read_Lines(temp,1);
-              if (s < -1)
-                { fprintf(stderr,"%s",Ebuffer);
-                  goto error;
-                }
-              reads[i].coff = qpos;
-              s = Compress_Next_QVentry(temp,quiva,coding,LOSSY);
-              if (s < 0)
-                { fprintf(stderr,"%s",Ebuffer);
-                  goto error;
-                }
-              if (s != reads[i].rlen)
-                { fprintf(stderr,"%s: Length of quiva %d is different than fasta in DB\n",
-                                 Prog_Name,i+1);
-                  goto error;
-                }
-              qpos = ftello(quiva);
-            }
-          cline = Get_QV_Line();
+            { char  *find;
+              int    clen;
+              float  snr[4];
+              uint16 cnr[4];
 
-          Free_QVcoding(coding);
+              if (eof)
+                { if (PIPE)
+                    fprintf(stderr,"%s: Insufficient # of reads on input while handling %s.arrow\n",
+                                   Prog_Name,fname);
+                  else
+                    { fprintf(stderr,"%s: Insufficient # of reads in %s.arrow while handling",
+                                     Prog_Name,core);
+                      fprintf(stderr," %s.arrow\n",fname);
+                    }
+                  goto error;
+                }
+
+              find = index(read+(rlen+1),' ');
+              if (find == NULL)
+                { fprintf(stderr,"File %s.arrow, Line %d: Pacbio header line format error\n",
+                                 core,cline);
+                  goto error;
+                }
+              *find = '\0';
+              if (strcmp(read+(rlen+1),prolog) != 0)
+                { fprintf(stderr,"File %s.arrow, Line %d: Pacbio prolog doesn't match DB entry\n",
+                                 core,cline);
+                  goto error;
+                }
+              *find = ' ';
+              x = sscanf(find+1," SN=%f,%f,%f,%f\n",snr,snr+1,snr+2,snr+3);
+              if (x != 4)
+                { fprintf(stderr,"File %s.arrow, Line %d: Pacbio header line format error\n",
+                                 core,cline);
+                  goto error;
+                }
+
+              rlen  = 0;
+              while (1)
+                { eof = (fgets(read+rlen,MAX_NAME,input) == NULL);
+                  cline += 1;
+                  x = strlen(read+rlen)-1;
+                  if (read[rlen+x] != '\n')
+                    { if (read[rlen] == '>')
+                        { fprintf(stderr,"File %s.arrow, Line %d:",core,cline);
+                          fprintf(stderr," Fasta header line is too long (> %d chars)\n",
+                                         MAX_NAME-2);
+                          goto error;
+                        }
+                      else
+                        x += 1;
+                    }
+                  if (eof || read[rlen] == '>')
+                    break;
+                  rlen += x;
+                  if (rlen + MAX_NAME > rmax)
+                    { rmax = ((int) (1.2 * rmax)) + 1000 + MAX_NAME;
+                      read = (char *) realloc(read,rmax+1);
+                      if (read == NULL)
+                        { fprintf(stderr,"File %s.arrow, Line %d:",core,cline);
+                          fprintf(stderr," Out of memory (Allocating line buffer)\n");
+                          goto error;
+                        }
+                    }
+                }
+              read[rlen] = '\0';
+
+              for (x = 0; x < 4; x++)
+                cnr[x] = (uint32) (snr[x] * 100.);
+
+              *((uint64  *) &(reads[i].coff)) = ((uint64) cnr[0]) << 48 |
+                                                ((uint64) cnr[1]) << 32 |
+                                                ((uint64) cnr[2]) << 16 |
+                                                ((uint64) cnr[3]);
+
+              Number_Arrow(read);
+              Compress_Read(rlen,read);
+              clen = COMPRESSED_LEN(rlen);
+              fwrite(read,1,clen,arrow);
+            }
         }
       }
 
-    if (fgetc(input) != EOF)
+    if (!eof)
       { if (PIPE)
           fprintf(stderr,"%s: Too many reads on input while handling %s.fasta\n",
                          Prog_Name,lname);
         else
-          fprintf(stderr,"%s: Too many reads in %s.quiva while handling %s.fasta\n",
+          fprintf(stderr,"%s: Too many reads in %s.arrow while handling %s.fasta\n",
                          Prog_Name,core,lname);
         goto error;
       }
@@ -465,10 +483,8 @@ int main(int argc, char *argv[])
         free(path);
         if (next_file(ng))
           { if (ng->name == NULL)
-              { fprintf(stderr,"%s",Ebuffer);
-                goto error;
-              }
-            core = Root(ng->name,".quiva");
+              goto error;
+            core = Root(ng->name,".arrow");
             fprintf(stderr,"%s: %s.fasta has never been added to DB\n",Prog_Name,core);
             goto error;
           }
@@ -477,35 +493,30 @@ int main(int argc, char *argv[])
 
   //  Write the db record and read index into .idx and clean up
 
+  db.allarr |= DB_ARROW;
   rewind(indx);
   fwrite(&db,sizeof(HITS_DB),1,indx);
   fwrite(reads,sizeof(HITS_READ),db.ureads,indx);
 
   fclose(istub);
   fclose(indx);
-  fclose(quiva);
-  fclose(temp);
-  unlink(tname);
+  fclose(arrow);
 
   exit (0);
 
-  //  Error exit:  Either truncate or remove the .qvs file as appropriate.
+  //  Error exit:  Either truncate or remove the .arw file as appropriate.
 
 error:
-  if (coff != 0)
-    { fseeko(quiva,0,SEEK_SET);
-      if (ftruncate(fileno(quiva),coff) < 0)
-        fprintf(stderr,"%s: Fatal: could not restore %s.qvs after error, truncate failed\n",
+  if (boff != 0)
+    { fseeko(arrow,0,SEEK_SET);
+      if (ftruncate(fileno(arrow),boff) < 0)
+        fprintf(stderr,"%s: Fatal: could not restore %s.arw after error, truncate failed\n",
                        Prog_Name,root);
     }
-  if (quiva != NULL)
-    { fclose(quiva);
-      if (coff == 0)
-        unlink(Catenate(pwd,PATHSEP,root,".qvs"));
-    }
-  if (temp != NULL)
-    { fclose(temp);
-      unlink(tname);
+  if (arrow != NULL)
+    { fclose(arrow);
+      if (boff == 0)
+        unlink(Catenate(pwd,PATHSEP,root,".arw"));
     }
   fclose(istub);
   fclose(indx);

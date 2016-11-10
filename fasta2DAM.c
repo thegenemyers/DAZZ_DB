@@ -527,6 +527,7 @@ int main(int argc, char *argv[])
         db.totlen = totlen;
         db.maxlen = maxlen;
         db.cutoff = -1;
+        db.allarr = 0;
       }
     else
       { for (c = 0; c < 4; c++)

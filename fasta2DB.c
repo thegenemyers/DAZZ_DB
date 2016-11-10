@@ -35,7 +35,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] <path:string> ( -f<file> | -i[<name>] | <input:fasta> ... )";
+static char *Usage = "[-v] <path:db> ( -f<file> | -i[<name>] | <input:fasta> ... )";
 
 static char number[128] =
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -252,23 +252,21 @@ int main(int argc, char *argv[])
 
         ureads  = 0;
         offset  = 0;
-        boff    = 0;
-        ioff    = 0;
       }
     else
       { if (fscanf(istub,DB_NFILE,&ocells) != 1)
           { fprintf(stderr,"%s: %s.db is corrupted, read failed\n",Prog_Name,root);
-            goto error;
+            exit (1);
           }
 
         bases = Fopen(Catenate(pwd,PATHSEP,root,".bps"),"r+");
         indx  = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
         if (bases == NULL || indx == NULL)
-          goto error;
+          exit (1);
 
         if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
           { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
-            goto error;
+            exit (1);
           }
         fseeko(bases,0,SEEK_END);
         fseeko(indx, 0,SEEK_END);
@@ -340,8 +338,7 @@ int main(int argc, char *argv[])
       { FILE *input;
         char  prolog[MAX_NAME];
         char *path, *core;
-        int   nline, eof, rlen, pcnt;
-        int   pwell;
+        int   eof;
 
         //  Open it: <path>/<core>.fasta if file, stdin otherwise with core = PIPE or "stdout"
 
@@ -367,6 +364,22 @@ int main(int argc, char *argv[])
             input = stdin;
           }
 
+        //  Get the header of the first line.  If the file is empty skip.
+
+        eof   = (fgets(read,MAX_NAME,input) == NULL);
+        if (eof || strlen(read) < 1)
+          { free(core);
+            fclose(input);
+            if (PIPE != NULL)
+              { fprintf(stderr,"Standard input is empty, terminating!\n");
+                break;
+              }
+            else
+              { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+                continue;
+              }
+          }
+
         //  Check that core is not too long and name is unique or last source if PIPE'd
 
         if (strlen(core) >= MAX_NAME)
@@ -387,21 +400,6 @@ int main(int argc, char *argv[])
                   goto error;
                 }
         }
-
-        //  Get the header of the first line.  If the file is empty skip.
-
-        pcnt  = 0;
-        rlen  = 0;
-        nline = 1;
-        eof   = (fgets(read,MAX_NAME,input) == NULL);
-        if (eof || strlen(read) < 1)
-          { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
-            if (input == stdin)
-              break;
-            fclose(input);
-            free(core);
-            continue;
-          }
 
         //   Add the file name to flist
 
@@ -436,8 +434,7 @@ int main(int argc, char *argv[])
               *find = '/';
             }
           else
-            { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
-                             core,nline);
+            { fprintf(stderr,"File %s.fasta, Line 1: Pacbio header line format error\n",core);
               goto error;
             }
         }
@@ -445,7 +442,11 @@ int main(int argc, char *argv[])
         //  Read in all the sequences until end-of-file
 
         { int i, x;
+          int nline, pwell, rlen, pcnt;
 
+          pcnt  = 0;
+          rlen  = 0;
+          nline = 1;
           pwell = -1;
           while (!eof)
             { int   beg, end, clen;
@@ -583,6 +584,7 @@ int main(int argc, char *argv[])
         db.totlen = totlen;
         db.maxlen = maxlen;
         db.cutoff = -1;
+        db.allarr = 0;
       }
     else
       { for (c = 0; c < 4; c++)

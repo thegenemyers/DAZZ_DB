@@ -3,7 +3,7 @@ DEST_DIR = ~/bin
 CFLAGS = -O3 -Wall -Wextra -Wno-unused-result -fno-strict-aliasing
 
 ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator \
-      fasta2DAM DAM2fasta DBdump rangen
+      fasta2DAM DAM2fasta DBdump rangen arrow2DB DB2arrow DBwipe
 
 all: $(ALL)
 
@@ -18,6 +18,12 @@ quiva2DB: quiva2DB.c DB.c DB.h QV.c QV.h
 
 DB2quiva: DB2quiva.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o DB2quiva DB2quiva.c DB.c QV.c -lm
+
+DB2arrow: DB2arrow.c DB.c QV.c DB.h QV.h
+	gcc $(CFLAGS) -o DB2arrow DB2arrow.c DB.c QV.c -lz
+
+arrow2DB: arrow2DB.c DB.c QV.c DB.h QV.h
+	gcc $(CFLAGS) -o arrow2DB arrow2DB.c DB.c QV.c -lz
 
 DBsplit: DBsplit.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o DBsplit DBsplit.c DB.c QV.c -lm
@@ -51,6 +57,10 @@ fasta2DAM: fasta2DAM.c DB.c DB.h QV.c QV.h
 
 DAM2fasta: DAM2fasta.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o DAM2fasta DAM2fasta.c DB.c QV.c -lm
+
+DBwipe: DBwipe.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBwipe DBwipe.c DB.c QV.c -lm
+
 
 clean:
 	rm -f $(ALL)

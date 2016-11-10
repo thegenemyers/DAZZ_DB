@@ -202,7 +202,8 @@ int main(int argc, char *argv[])
     fprintf(dbfile,DB_NBLOCK,nblock);
 
     dbs.cutoff = CUTOFF;
-    dbs.all    = ALL;
+    if (ALL)
+      dbs.allarr |= DB_ALL;
     dbs.treads = treads;
     rewind(ixfile);
     fwrite(&dbs,sizeof(HITS_DB),1,ixfile);

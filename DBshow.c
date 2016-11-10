@@ -26,8 +26,8 @@
 #endif
 
 static char *Usage[] =
-    { "[-unqUQ] [-w<int(80)>] [-m<track>]+",
-      "         <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
+    { "[-unqaUQA] [-w<int(80)>] [-m<track>]+",
+      "           <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
 #define LAST_READ_SYMBOL   '$'
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
   FILE          *input;
 
   int         TRIM, UPPER;
-  int         DOSEQ, DOQVS, QUIVA, DAM;
+  int         DOSEQ, DOQVS, DOARR, QUIVA, ARROW, DAM;
   int         WIDTH;
 
   int         MMAX, MTOP;
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("unqUQ")
+            ARG_FLAGS("unqaUQA")
             break;
           case 'w':
             ARG_NON_NEGATIVE(WIDTH,"Line width")
@@ -142,15 +142,28 @@ int main(int argc, char *argv[])
     TRIM  = 1-flags['u'];
     UPPER = 1+flags['U'];
     DOQVS = flags['q'];
+    DOARR = flags['a'];
     DOSEQ = 1-flags['n'];
     QUIVA = flags['Q'];
-    if (QUIVA && (!DOSEQ || MTOP > 0))
-      { fprintf(stderr,"%s: -Q (quiva) format request inconsistent with -n and -m options\n",
+    ARROW = flags['A'];
+    if (QUIVA && (MTOP > 0 || DOARR || ARROW))
+      { fprintf(stderr,"%s: -Q (quiva) format request inconsistent with -m, -a, and -A options\n",
+                       Prog_Name);
+        exit (1);
+      }
+    if (ARROW && (MTOP > 0 || DOQVS || QUIVA))
+      { fprintf(stderr,"%s: -A (arrow) format request inconsistent with -m, -a, and -A options\n",
                        Prog_Name);
         exit (1);
       }
     if (QUIVA)
-      DOQVS = 1;
+      { DOQVS = 1;
+        DOSEQ = 0;
+      }
+    if (ARROW)
+      { DOARR = 1;
+        DOSEQ = 0;
+      }
 
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage[0]);
@@ -177,13 +190,26 @@ int main(int argc, char *argv[])
         if (hdrs == NULL)
           exit (1);
         DAM = 1;
-        if (QUIVA || DOQVS)
-          { fprintf(stderr,"%s: -Q and -q options not compatible with a .dam DB\n",Prog_Name);
+        if (DOQVS || DOARR)
+          { fprintf(stderr,"%s: -q, a, Q and A options not compatible with a .dam DB\n",Prog_Name);
             exit (1);
           }
 
         free(root);
         free(pwd);
+      }
+
+    if (DOQVS)
+      { if (db->reads[0].coff < 0 || (db->allarr & DB_ARROW) != 0)
+          { fprintf(stderr,"%s: -q or Q option but no Quiver data in DB!\n",Prog_Name);
+            exit (1);
+          }
+      }
+    if (DOARR)
+      { if ((db->allarr & DB_ARROW) == 0)
+          { fprintf(stderr,"%s: -a or A option but no Arrow data in DB!\n",Prog_Name);
+            exit (1);
+          }
       }
   }
 
@@ -263,11 +289,11 @@ int main(int argc, char *argv[])
 
           reads  = db->reads - db->ufirst;
           cutoff = db->cutoff;
-          if (db->all)
+          if ((db->allarr & DB_ALL) != 0)
             allflag = 0;
           else
             allflag = DB_BEST;
-          
+ 
           nid = 0;
           oid = db->ufirst;
           lid = oid + db->nreads;
@@ -394,7 +420,7 @@ int main(int argc, char *argv[])
 
   { HITS_READ  *reads;
     HITS_TRACK *first;
-    char       *read, **entry;
+    char       *read, *arrow, **entry;
     int         c, b, e, i;
     int         hilight, substr;
     int         map;
@@ -409,6 +435,8 @@ int main(int argc, char *argv[])
       { entry = NULL;
         first = db->tracks;
       }
+    if (DOARR)
+      arrow = New_Read_Buffer(db);
 
     if (UPPER == 1)
       { hilight = 'A'-'a';
@@ -446,21 +474,40 @@ int main(int argc, char *argv[])
           { int         len;
             int         fst, lst;
             int         flags, qv;
+            float       snr[4];
             HITS_READ  *r;
             HITS_TRACK *track;
 
             r   = reads + i;
             len = r->rlen;
+            if (substr)
+              { fst = iter->beg;
+                lst = iter->end;
+              }
+            else
+              { fst = 0;
+                lst = len;
+              }
 
             flags = r->flags;
             qv    = (flags & DB_QV);
+            if (DOARR)
+              { uint64 big;
+                int    j;
+
+                big   = *((uint64 *) &(r->coff));
+                for (j = 0; j < 4; j++)
+                  { snr[3-j] = (big & 0xffff) / 100.;
+                    big    >>= 16;
+                  }
+              }
             if (DAM)
               { char header[MAX_NAME];
 
                 fseeko(hdrs,r->coff,SEEK_SET);
                 fgets(header,MAX_NAME,hdrs);
                 header[strlen(header)-1] = '\0';
-                printf("%s :: Contig %d[%d,%d]",header,r->origin,r->fpulse,r->fpulse+len);
+                printf("%s :: Contig %d[%d,%d]",header,r->origin,r->fpulse+fst,r->fpulse+lst);
               }
             else
               { while (i < findx[map-1])
@@ -468,11 +515,15 @@ int main(int argc, char *argv[])
                 while (i >= findx[map])
                   map += 1;
                 if (QUIVA)
-                  printf("@%s/%d/%d_%d",flist[map],r->origin,r->fpulse,r->fpulse+len);
+                  printf("@%s/%d/%d_%d",flist[map],r->origin,r->fpulse+fst,r->fpulse+lst);
+                else if (ARROW)
+                  printf(">%s",flist[map]);
                 else
-                  printf(">%s/%d/%d_%d",flist[map],r->origin,r->fpulse,r->fpulse+len);
+                  printf(">%s/%d/%d_%d",flist[map],r->origin,r->fpulse+fst,r->fpulse+lst);
                 if (qv > 0)
                   printf(" RQ=0.%3d",qv);
+                if (DOARR)
+                  printf(" SN=%.2f,%.2f,%.2f,%.2f",snr[0],snr[1],snr[2],snr[3]);
               }
             printf("\n");
 
@@ -480,6 +531,8 @@ int main(int argc, char *argv[])
               Load_QVentry(db,i,entry,UPPER);
             if (DOSEQ)
               Load_Read(db,i,read,UPPER);
+            if (DOARR)
+              Load_Arrow(db,i,arrow,1);
 
             for (track = first; track != NULL; track = track->next)
               { int64 *anno;
@@ -508,20 +561,19 @@ int main(int argc, char *argv[])
                   }
               }
 
-            if (substr)
-              { fst = iter->beg;
-                lst = iter->end;
-              }
-            else
-              { fst = 0;
-                lst = len;
-              }
-
             if (QUIVA)
               { int k;
 
                 for (k = 0; k < 5; k++)
                   printf("%.*s\n",lst-fst,entry[k]+fst);
+              }
+            else if (ARROW)
+              { int k;
+    
+                for (k = fst; k+WIDTH < lst; k += WIDTH)
+                  printf("%.*s\n",WIDTH,arrow+k);
+                if (k < lst)
+                  printf("%.*s\n",lst-k,arrow+k);
               }
             else
               { if (DOQVS)
@@ -541,6 +593,21 @@ int main(int argc, char *argv[])
                         for (k = 0; k < 5; k++)
                           printf("%.*s\n",lst-j,entry[k]+j);
                         printf("\n");
+                      }
+                  }
+                else if (DOARR)
+                  { int j;
+
+                    printf("\n");
+                    for (j = fst; j+WIDTH < lst; j += WIDTH)
+                      { if (DOSEQ)
+                          printf("%.*s\n",WIDTH,read+j);
+                        printf("%.*s\n\n",WIDTH,arrow+j);
+                      }
+                    if (j < lst)
+                      { if (DOSEQ)
+                          printf("%.*s\n",lst-j,read+j);
+                        printf("%.*s\n\n",lst-j,arrow+j);
                       }
                   }
                 else if (DOSEQ)

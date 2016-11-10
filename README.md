@@ -22,10 +22,11 @@ to the data base over time.
 is accomplished with the concept of *tracks* that implementors can add as they
 need them.
 
-4. The data is held in a compressed form equivalent to the .dexta and .dexqv files of
-the data extraction module.  Both the .fasta and .quiva information for each
-read is held in the data base and can be recreated from it.  The .quiva
-information can be added separately and later on if desired.
+4. The data is held in a compressed form equivalent to the .dexta and .dexqv/.dexar
+files of the data extraction module.  Both the .fasta and .quiva/.arrow
+information for each read is held in the data base and can be recreated from it.
+The Quiver or Arrow information can be added separately and later on if desired,
+but the database can only accommodate one or the other and not both.
 
 5. To facilitate job parallel, cluster operation of the phases of our assembler, the
 data base has a concept of a *current partitioning* in which all the reads that
@@ -42,8 +43,16 @@ A Dazzler DB consists of one named, *visible* file, e.g. FOO.db, and several
 are "invisible" to the UNIX OS in the sense that they begin with a "." and hence are
 not listed by "ls" unless one specifies the -a flag.  We chose to do this so that when
 a user lists the contents of a directory they just see a single name, e.g. FOO.db, that
-is the one used to refer to the DB in commands.  The files associated with a database
-named, say FOO,  are as follows:
+is the one used to refer to the DB in commands.
+
+A DB con contain the information needed by Quiver, or by Arrow, or neither, but not
+both.  A DB is a "Quiver DB" (Q-DB) if said information is added by way of the programs
+**dexx2DB -q** or **quiva2DB**.  A DB is an "Arrow DB" (A-DB) if said information is added
+by way of the programs **dex2DB -a** or **arrow2DB**.  Options pertaining to this
+information only apply if the appropriate information is present and an error is
+emitted if it is not.
+
+The files associated with a database named, say FOO,  are as follows:
 
 * "FOO.db": a text file containing
   1. the list of input files added to the database so far, and
@@ -60,7 +69,11 @@ named, say FOO,  are as follows:
 
 * ".FOO.qvs": a binary compressed "store" of the 5 Pacbio quality value streams for
   the reads.  Its size is roughly 5/3M bytes depending on the
-  compression acheived.  This file only exists if .quiva files have
+  compression acheived.  This file only exists if Quiver information has
+  been added to the database.
+
+* ".FOO.arw": a binary compressed "store" of the clipped pulse width streams for
+  the reads.  Its size is roughly M/4 bytes.  This file only exists if Arrow information has
   been added to the database.
 
 * ".FOO.\<track\>.[anno,data]": a *track* containing customized meta-data for each read.  For
@@ -83,7 +96,7 @@ been introduced in order to facilitate the mapping of reads to an assembly and h
 been given the suffix .dam to distinguish it from an ordinary DB.  It is structurally
 identical to a .db except:
 
-* there is no concept of quality values, and hence no .FOO.qvs file.
+* there is no concept of quality values, and hence no .FOO.qvs or .FOO.arw file.
 
 * every .fasta scaffold (a sequence with runs of N's between contigs estimating the
   length of the gap) is broken into a separate contig sequence in the DB and the
@@ -182,14 +195,39 @@ The set of .quiva files within the given DB are recreated from the DB exactly as
 were input.  That is, this is a perfect inversion, including the reconstitution of the
 proper .quiva headers.  Because of this property, one can, if desired, delete the
 .quiva source files once they are in the DB as they can always be recreated from it.
-Entries imported from the standard input will be place in the faux file name given on
+Entries imported from the standard input will be placed in the faux file name given on
 import, or to the standard output if no name was given. 
 By .fastq convention each QV vector is output as a line without new-lines, and by
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
 ```
-5. fasta2DAM [-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )
+5. arrow2DB [-v] <path:db> ( -f<file> | -i | <input:arrow> ... )
+```
+
+Adds .arrow streams to an existing DB "path".  The data comes from (a) the given .arrow
+files on the command line, or (b) those in the file specified by the -f option, or
+(c) the standard input if the -i option is given. The input files must be added in the
+same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
+FOO.quiva. The files can be added incrementally but must be added in the same order as
+their corresponding .fasta files. This is enforced by the program.
+
+```
+6. DB2arrow [-v] [-w<int(80)>] <path:db>
+```
+
+The set of .arrow files within the given DB are recreated from the DB exactly as they
+were input.  That is, this is a perfect inversion, including the reconstitution of the
+proper .arrow headers.  Because of this property, one can, if desired, delete the
+.arrow source files once they are in the DB as they can always be recreated from it.
+Entries imported from the standard input will be placed in the faux file name given on
+import, or to the standard output if no name was given. 
+By default the output sequences are formatted 80 chars per line,
+but the characters per line, or line width, can be
+set to any positive value with the -w option.
+
+```
+7. fasta2DAM [-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )
 ```
 
 Builds an initial map DB or DAM, or adds to an existing DAM, either (a) the list of
@@ -203,7 +241,7 @@ interval of the contig in the original entry recorded. The header for each .fast
 is saved with the contigs created from it.
 
 ```
-6. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
+8. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
 ```
 
 The set of .fasta files for the given map DB or DAM are recreated from the DAM
@@ -217,7 +255,7 @@ should be used, and the characters per line, or line width, can be set to any po
 value with the -w option.
 
 ```
-7. DBsplit [-a] [-x<int>] [-s<int(200)>] <path:db|dam>
+9. DBsplit [-af] [-x<int>] [-s<int(200)>] <path:db|dam>
 ```
 
 Divide the database \<path\>.db or \<path\>.dam conceptually into a series of blocks
@@ -237,7 +275,7 @@ question has previously bin split, i.e. one is not interactively asked if they w
 to proceed.
 
 ```
-8. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
+10. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
 ```
 
 Runs the symmetric DUST algorithm over the reads in the untrimmed DB \<path\>.db or
@@ -258,7 +296,7 @@ This permits job parallelism in block-sized chunks, and the resulting sequence o
 block tracks can then be merged into a track for the entire untrimmed DB with Catrack.
 
 ```
-9. Catrack [-v] <path:db|dam> <track:name>
+11. Catrack [-v] <path:db|dam> <track:name>
 ```
 
 Find all block tracks of the form .\<path\>.#.\<track\>... and merge them into a single
@@ -267,8 +305,8 @@ encode the same kind of track data (this is checked), and the files must exist f
 block 1, 2, 3, ... up to the last block number.
 
 ```
-10. DBshow [-unqUQ] [-w<int(80)>] [-m<track>]+
-                    <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
+12. DBshow [-unqaUQA] [-w<int(80)>] [-m<track>]+
+                      <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
 Displays the requested reads in the database \<path\>.db or \<path\>.dam.  By default the
@@ -287,8 +325,10 @@ example, 1-$ displays every read in the active db (the default).
 By default a .fasta file of the read sequences is displayed.  If the -q option is
 set, then the QV streams are also displayed in a non-standard modification of the
 fasta format.  If the -n option is set then the DNA sequence is *not* displayed.
-If the -Q option is set then a .quiva file is displayed  and in this case the -n
-and -m options mayt not be set (and the -q and -w options have no effect).
+If the -Q option is set then a .quiva file is displayed and in this case the -m, a,
+and A options may not be set (and the -q, n, and w options have no effect).
+If the -A option is set then an .arrow file is displayed and in this case the -m, q,
+and Q options may not be set (and the -a and n option has no effect).
 
 If one or more masks are set with the -m option then the track intervals are also
 displayed in an additional header line and the bases within an interval are displayed
@@ -302,8 +342,8 @@ and quiva2DB (if the -q and -n options are not set and no -m options are set),
 giving one a simple way to make a DB of a subset of the reads for testing purposes.
 
 ```
-12. DBdump [-rhsiqp] [-uU] [-m<track>]+
-                     <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
+13. DBdump [-rhsaiqp] [-uU] [-m<track>]+
+                      <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
 Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
@@ -311,14 +351,16 @@ which information to show about them including any mask tracks.  The difference 
 that the information is written in a very simple "1-code" ASCII format that makes it
 easy for one to read and parse the information for further use.  -r requests that each
 read number be displayed (useful if only a subset of reads is requested).  -h prints
-the header information which is the source file name, well #, and pulse range.
+the header information which is the source file name, well #, and pulse range, and
+optionally the quality of the read (if a Quiver DB) or the 4 SNR channel values (if an
+Arrow DB).
 -s requests the sequence be output, -i requests that the intrinsic quality values be
 output, -q requests that the 5 quiva sequences be output, -p requests the repeat
 profile be output (if available), and -m\<track\> requests that mask \<track\> be output.
 Set -u if you want data from the untrimmed database (the default is trimmed) and
 set -U if you'd like upper-case letter used in the DNA sequence strings.
 
-The format is very simple.  Each requested piece of information occurs on a line.  The
+The format is very simple.  Each itme of information occurs on a line.  The
 first character of every line is a "1-code" character that tells you what information
 to expect on the line.  The rest of the line contains information where each item is
 separated by a single blank space.  Strings are output as first an integer giving the
@@ -333,8 +375,11 @@ respectively.
     R #              - read number
     H # string       - original file name string (header)
     L # # #          - location: well, pulse start, pulse end
+    Q #              - quality of read (#/1000)
+    N # # # #        - SNR of ACGT channels (#/100)
     Tx #n (#b #e)^#n - x'th track on command line, #n intervals all on same line
     S # string       - sequence string
+    A # string       - arrow string
     I # string       - intrinsic quality vector (as an ASCII string)
     P # string       - repeat profile vector (as an ASCII string)
     d # string       - Quiva deletion values (as an ASCII string)
@@ -352,12 +397,12 @@ the number of reads (X=R), the number of masks (X=M), or the total number of
 characters in all headers (X=H), sequences (X=S), intrinsic quality vectors (X=I),
 read profile vector (X=P), or track (X=T#).  And '@ X #' gives the maximum number of
 characters in any header (X=H), sequence (X=S), intrincic quality vector (X=I), read
-profile vector (X=P), or track (X=T#).  The size numbers for the Quiva strings are
-identical to that for the sequence as they are all of the same length for any
-given entry.
+profile vector (X=P), or track (X=T#).  The size numbers for the Quiva strings and
+Arrow pulse width strings are identical to that for the sequence as they are all of
+the same length for any given entry.
 
 ```
-12. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
+14. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 ```
 
 Show overview statistics for all the reads in the trimmed data base \<path\>.db or
@@ -369,7 +414,7 @@ intervals along the read can be specified with the -m option in which case a sum
 and a histogram of the interval lengths is displayed.
 
 ```
-13. DBrm <path:db|dam> ...
+15. DBrm <path:db|dam> ...
 ```
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
@@ -377,7 +422,15 @@ there are at least two and often several secondary files for each DB including t
 files, and all of these are removed by DBrm.
 
 ```
-14.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
+16. DBwipe <path:db|dam> ...
+```
+
+Delete any Arrow or Quiver data from the given databases.  This removes the .arw or
+.qvs file and resets information in the .idx file containing information for Arrow
+or Quiver.  Basically, converts an A-DB or Q-DB back to a simple S-DB.
+
+```
+17.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
                                   [-w<int(80)>] [-r<int>] [-M<file>]
 ```
@@ -412,7 +465,7 @@ a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in t
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
 ```
-15. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+18. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
 ```
 
 Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.

@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 
     if (dam)
       printf("\nStatistics for all contigs");
-    else if (db->all || !TRIM)
+    else if ((db->allarr & DB_ALL) != 0 || !TRIM)
       printf("\nStatistics for all wells");
     else
       printf("\nStatistics for all reads");
