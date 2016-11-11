@@ -147,7 +147,9 @@ are currently as follows:
 Builds an initial data base, or adds to an existing database, either (a) the list of
 .fasta files following the database name argument, or (b) the list of .fasta files in
 \<file\> if the -f option is used, or (c) entries piped from the standard input if the
--i option is used.  If a faux file name, \<name\>, follows the -i option then all the
+-i option is used.  If the DB is being created it is established as a Sequence-DB (S-DB)
+otherwise its type is unchanged.  If a faux file name, \<name\>, follows the -i option
+then all the
 input received is considered to have come from a file by the name of \<name\>.fasta by
 DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  The SMRT cells
 in a given named input (i.e. all sources other than -i without a name) can only be
@@ -178,7 +180,8 @@ set to any positive value with the -w option.
 3. quiva2DB [-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )
 ```
 
-Adds .quiva streams to an existing DB "path".  The data comes from (a) the given .quiva
+Adds .quiva streams to an existing DB "path".  The DB must either be an S-DB or a
+Q-DB and upon completion the DB is a Q-DB.  The data comes from (a) the given .quiva
 files on the command line, or (b) those in the file specified by the -f option, or
 (c) the standard input if the -i option is given. The input files must be added in the
 same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
@@ -191,7 +194,7 @@ of dexqv in the DEXTRACTOR module here).
 4. DB2quiva [-vU] <path:db>
 ```
 
-The set of .quiva files within the given DB are recreated from the DB exactly as they
+The set of .quiva files within the given Q-DB are recreated from the DB exactly as they
 were input.  That is, this is a perfect inversion, including the reconstitution of the
 proper .quiva headers.  Because of this property, one can, if desired, delete the
 .quiva source files once they are in the DB as they can always be recreated from it.
@@ -205,7 +208,8 @@ upper case letters should be used instead.
 5. arrow2DB [-v] <path:db> ( -f<file> | -i | <input:arrow> ... )
 ```
 
-Adds .arrow streams to an existing DB "path".  The data comes from (a) the given .arrow
+Adds .arrow streams to an existing DB "path".  The DB must either be an S-DB or an
+A-DB and upon completion the DB is a A-DB.  The data comes from (a) the given .arrow
 files on the command line, or (b) those in the file specified by the -f option, or
 (c) the standard input if the -i option is given. The input files must be added in the
 same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
@@ -216,7 +220,7 @@ their corresponding .fasta files. This is enforced by the program.
 6. DB2arrow [-v] [-w<int(80)>] <path:db>
 ```
 
-The set of .arrow files within the given DB are recreated from the DB exactly as they
+The set of .arrow files within the given A-DB are recreated from the DB exactly as they
 were input.  That is, this is a perfect inversion, including the reconstitution of the
 proper .arrow headers.  Because of this property, one can, if desired, delete the
 .arrow source files once they are in the DB as they can always be recreated from it.
@@ -351,11 +355,12 @@ which information to show about them including any mask tracks.  The difference 
 that the information is written in a very simple "1-code" ASCII format that makes it
 easy for one to read and parse the information for further use.  -r requests that each
 read number be displayed (useful if only a subset of reads is requested).  -h prints
-the header information which is the source file name, well #, and pulse range, and
-optionally the quality of the read (if a Quiver DB) or the 4 SNR channel values (if an
-Arrow DB).
--s requests the sequence be output, -i requests that the intrinsic quality values be
-output, -q requests that the 5 quiva sequences be output, -p requests the repeat
+the header information consisting of the source file name (on an H-line), well # and
+pulse range (on an L-line), and optionally the quality of the read if given (on a Q-line).
+-s requests the sequence be output, -a requests the Arrow information be output as a
+pulse-width string (on an A-line) and the 4 SNR channel values (on an N-line),
+-i requests that the intrinsic quality values be
+output, -q requests that the 5 Quiver quality streams be output, -p requests the repeat
 profile be output (if available), and -m\<track\> requests that mask \<track\> be output.
 Set -u if you want data from the untrimmed database (the default is trimmed) and
 set -U if you'd like upper-case letter used in the DNA sequence strings.
@@ -379,7 +384,7 @@ respectively.
     N # # # #        - SNR of ACGT channels (#/100)
     Tx #n (#b #e)^#n - x'th track on command line, #n intervals all on same line
     S # string       - sequence string
-    A # string       - arrow string
+    A # string       - arrow pulse-width string
     I # string       - intrinsic quality vector (as an ASCII string)
     P # string       - repeat profile vector (as an ASCII string)
     d # string       - Quiva deletion values (as an ASCII string)
