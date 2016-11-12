@@ -146,23 +146,21 @@ int main(int argc, char *argv[])
     DOSEQ = 1-flags['n'];
     QUIVA = flags['Q'];
     ARROW = flags['A'];
-    if (QUIVA && (MTOP > 0 || DOARR || ARROW))
-      { fprintf(stderr,"%s: -Q (quiva) format request inconsistent with -m, -a, and -A options\n",
+    if ((QUIVA || DOQVS) && (ARROW || DOARR))
+      { fprintf(stderr,"%s: Cannot request both Quiver (-Q,-q) and Arrow (-A,a) information\n",
                        Prog_Name);
         exit (1);
       }
-    if (ARROW && (MTOP > 0 || DOQVS || QUIVA))
-      { fprintf(stderr,"%s: -A (arrow) format request inconsistent with -m, -a, and -A options\n",
-                       Prog_Name);
-        exit (1);
-      }
+
     if (QUIVA)
       { DOQVS = 1;
         DOSEQ = 0;
+        MTOP  = 0;
       }
     if (ARROW)
       { DOARR = 1;
         DOSEQ = 0;
+        MTOP  = 0;
       }
 
     if (argc <= 1)

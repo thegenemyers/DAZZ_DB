@@ -23,12 +23,14 @@ is accomplished with the concept of *tracks* that implementors can add as they
 need them.
 
 4. The data is held in a compressed form equivalent to the .dexta and .dexqv/.dexar
-files of the data extraction module.  Both the .fasta and .quiva/.arrow
-information for each read is held in the data base and can be recreated from it.
-The Quiver or Arrow information can be added separately and later on if desired,
-but the database can only accommodate one or the other and not both.
+files of the data extraction module.
 
-5. To facilitate job parallel, cluster operation of the phases of our assembler, the
+5. Quiver or Arrow information can be added separately from the sequence information
+and later on if desired, but a database can only hold either Quiver or Arrow information,
+but not both.  The Arrow or Quiver information can be removed from the database at any
+time leaving a database just containing sequence information.
+
+6. To facilitate job parallel, cluster operation of the phases of our assembler, the
 data base has a concept of a *current partitioning* in which all the reads that
 are over a given length and optionally unique to a well, are divided up into
 *blocks* containing roughly a given number of bases, except possibly the last
@@ -38,21 +40,19 @@ all the same size.  One must be careful about changing the partition during an
 assembly as doing so can void the structural validity of any interim
 block-based results.
 
+A DB con contain the information needed by Quiver, or by Arrow, or neither, but
+not both.  A DB containing neither Quiver or Arrow information is termed a
+Sequence-DB (S-DB).  A DB with Quiver information is a Quiver-DB (Q-DB) and
+a DB with Arrow information is an Arrow-DB (A-DB). All commands are aware of
+the state of a DB and respond to options according to their type. 
+
 A Dazzler DB consists of one named, *visible* file, e.g. FOO.db, and several
 *invisible* secondary files encoding various elements of the DB.  The secondary files
 are "invisible" to the UNIX OS in the sense that they begin with a "." and hence are
 not listed by "ls" unless one specifies the -a flag.  We chose to do this so that when
 a user lists the contents of a directory they just see a single name, e.g. FOO.db, that
-is the one used to refer to the DB in commands.
-
-A DB con contain the information needed by Quiver, or by Arrow, or neither, but not
-both.  A DB is a "Quiver DB" (Q-DB) if said information is added by way of the programs
-**dexx2DB -q** or **quiva2DB**.  A DB is an "Arrow DB" (A-DB) if said information is added
-by way of the programs **dex2DB -a** or **arrow2DB**.  Options pertaining to this
-information only apply if the appropriate information is present and an error is
-emitted if it is not.
-
-The files associated with a database named, say FOO,  are as follows:
+is used to refer to the DB in commands.  The files associated with a database
+named, say FOO,  are as follows:
 
 * "FOO.db": a text file containing
   1. the list of input files added to the database so far, and
@@ -72,7 +72,7 @@ The files associated with a database named, say FOO,  are as follows:
   compression acheived.  This file only exists if Quiver information has
   been added to the database.
 
-* ".FOO.arw": a binary compressed "store" of the clipped pulse width streams for
+* ".FOO.arw": a binary compressed "store" of the clipped pulse width stream for
   the reads.  Its size is roughly M/4 bytes.  This file only exists if Arrow information has
   been added to the database.
 
@@ -183,10 +183,10 @@ set to any positive value with the -w option.
 Adds .quiva streams to an existing DB "path".  The DB must either be an S-DB or a
 Q-DB and upon completion the DB is a Q-DB.  The data comes from (a) the given .quiva
 files on the command line, or (b) those in the file specified by the -f option, or
-(c) the standard input if the -i option is given. The input files must be added in the
+(c) the standard input if the -i option is given. The input files can be added incrementally
+but must be added in the
 same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
-FOO.quiva. The files can be added incrementally but must be added in the same order as
-their corresponding .fasta files. This is enforced by the program. With the -l option
+FOO.quiva.  This is enforced by the program. With the -l option
 set the compression scheme is a bit lossy to get more compression (see the description
 of dexqv in the DEXTRACTOR module here).
 
@@ -209,12 +209,12 @@ upper case letters should be used instead.
 ```
 
 Adds .arrow streams to an existing DB "path".  The DB must either be an S-DB or an
-A-DB and upon completion the DB is a A-DB.  The data comes from (a) the given .arrow
+A-DB and upon completion the DB is an A-DB.  The data comes from (a) the given .arrow
 files on the command line, or (b) those in the file specified by the -f option, or
-(c) the standard input if the -i option is given. The input files must be added in the
+(c) the standard input if the -i option is given. The input files can be added
+incrementally but must be added in the
 same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
-FOO.quiva. The files can be added incrementally but must be added in the same order as
-their corresponding .fasta files. This is enforced by the program.
+FOO.quiva.  This is enforced by the program.
 
 ```
 6. DB2arrow [-v] [-w<int(80)>] <path:db>
@@ -239,7 +239,7 @@ Builds an initial map DB or DAM, or adds to an existing DAM, either (a) the list
 \<file\> if the -f option is used, or (c) entries piped from the standard input if the -i
 option is used.  If a faux file name, \<name\>, follows the -i option then all the input
 received is considered to have come from a file by the name of \<name\>.fasta by
-DB2fasta, otherwise it will be sent to the standard output by DB2fasta.  Any .fasta
+DAM2fasta, otherwise it will be sent to the standard output by DAM2fasta.  Any .fasta
 entry that has a run of N's in it will be split into separate "contig" entries and the
 interval of the contig in the original entry recorded. The header for each .fasta entry
 is saved with the contigs created from it.
@@ -327,12 +327,14 @@ represents the index of the last read in the actively loaded db.  For example,
 example, 1-$ displays every read in the active db (the default).
 
 By default a .fasta file of the read sequences is displayed.  If the -q option is
-set, then the QV streams are also displayed in a non-standard modification of the
-fasta format.  If the -n option is set then the DNA sequence is *not* displayed.
-If the -Q option is set then a .quiva file is displayed and in this case the -m, a,
-and A options may not be set (and the -q, n, and w options have no effect).
-If the -A option is set then an .arrow file is displayed and in this case the -m, q,
-and Q options may not be set (and the -a and n option has no effect).
+set and the DB is a Q-DB, then the QV streams are also displayed in a non-standard
+modification of the fasta format.
+Similarly, if the -a option is set and the DB is an A-DB, then the pulse width stream is
+also displayed in a non-standard format.
+If the -n option is set then the DNA sequence is *not* displayed.
+If the -Q option is set then a .quiva file of the selected reads is displayed and
+all other options except -u and -U are ignored.  If the -A option is set then a .arrow
+file of the selected reads is displayed and all other options except -u and -w are ignored.
 
 If one or more masks are set with the -m option then the track intervals are also
 displayed in an additional header line and the bases within an interval are displayed
@@ -341,40 +343,53 @@ sequences are in lower case and 80 chars per line.  The -U option specifies uppe
 case should be used, and the characters per line, or line width, can be set to any
 positive value with the -w option.
 
-The .fasta or .quiva files that are output can be converted into a DB by fasta2DB
-and quiva2DB (if the -q and -n options are not set and no -m options are set),
-giving one a simple way to make a DB of a subset of the reads for testing purposes.
+The .fasta, .quiva, and .arrow files that are output can be used to build a new DB with
+fasta2DB, quiva2D, and arrow2DB, giving one a simple way to make a DB of a subset of
+the reads for testing purposes.
 
 ```
-13. DBdump [-rhsaiqp] [-uU] [-m<track>]+
+13. DBdump [-rhsaqip] [-uU] [-m<track>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
 Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
 which information to show about them including any mask tracks.  The difference is
 that the information is written in a very simple "1-code" ASCII format that makes it
-easy for one to read and parse the information for further use.  -r requests that each
-read number be displayed (useful if only a subset of reads is requested).  -h prints
-the header information consisting of the source file name (on an H-line), well # and
-pulse range (on an L-line), and optionally the quality of the read if given (on a Q-line).
--s requests the sequence be output, -a requests the Arrow information be output as a
-pulse-width string (on an A-line) and the 4 SNR channel values (on an N-line),
--i requests that the intrinsic quality values be
-output, -q requests that the 5 Quiver quality streams be output, -p requests the repeat
-profile be output (if available), and -m\<track\> requests that mask \<track\> be output.
+easy for one to read and parse the information for further use.  The option flags determine
+which items of information are output as follows:
+
+* -r requests that each read number be displayed in an R-line (see below, useful if only a
+subset of reads is requested).
+
+* -h requests the header information be output as the source file name on an H-line, the
+well # and pulse range on an L-line, and optionally the quality of the read if given on a Q-line.
+
+* -s requests the sequence be output on an S-line.
+
+* -a requests the Arrow information be output as a pulse-width string on an A-line and
+the 4 SNR channel values (on an N-line),
+
+* -q requests that the 5 Quiver quality streams be output on d-, c-, i-, m-, and s-lines.
+
+* -i requests that the intrinsic quality values be output on an I-line.
+
+* -p requests the repeat profile be output (if available) on a P-line, on a P-line
+
+* -m\<track\> requests that mask \<track\> be output on a T-line.
+
 Set -u if you want data from the untrimmed database (the default is trimmed) and
 set -U if you'd like upper-case letter used in the DNA sequence strings.
 
-The format is very simple.  Each itme of information occurs on a line.  The
+The format is very simple.  A requested unit of information occurs on a line.  The
 first character of every line is a "1-code" character that tells you what information
-to expect on the line.  The rest of the line contains information where each item is
+to expect on the line.  The rest of the line contains the information where each item is
 separated by a single blank space.  Strings are output as first an integer giving the
 length of the string, a blank space, and then the string terminated by a new-line.
 Intrinsic quality values are between 0 and 50, inclusive, and a vector of said are
 displayed as an alphabetic string where 'a' is 0, 'b' is '1', ... 'z' is 25, 'A' is
 26, 'B' is 27, ... and 'Y' is 50.  Repeat profiles are also displayed as string where
 '_' denotes 0 repetitions, and then 'a' through 'N' denote the values 1 through 40,
-respectively.  
+respectively.   The set of all possible lines is as follows:
 
 ```
     R #              - read number
