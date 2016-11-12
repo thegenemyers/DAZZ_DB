@@ -367,7 +367,7 @@ well # and pulse range on an L-line, and optionally the quality of the read if g
 * -s requests the sequence be output on an S-line.
 
 * -a requests the Arrow information be output as a pulse-width string on an A-line and
-the 4 SNR channel values (on an N-line),
+the 4 SNR channel values on an N-line,
 
 * -q requests that the 5 Quiver quality streams be output on d-, c-, i-, m-, and s-lines.
 
