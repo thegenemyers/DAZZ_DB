@@ -61,9 +61,13 @@ static int    HASR;       // -r option is set?
 static int    SEED;       // -r option
 static FILE  *MAP;        // -M option
 
-#define INS_RATE  .73333  // insert rate
+#define INS_RATE  .73333  // insert rate (for PB data)
 #define DEL_RATE  .20000  // deletion rate
 #define IDL_RATE  .93333  // insert + delete rate
+
+// #define INS_RATE  .1  // insert rate (for Illumina data)
+// #define DEL_RATE  .1  // deletion rate
+// #define IDL_RATE  .2  // insert + delete rate
 
 //  Complement (in the DNA sense) string *s*.
 

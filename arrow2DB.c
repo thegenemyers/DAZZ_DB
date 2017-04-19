@@ -222,6 +222,7 @@ int main(int argc, char *argv[])
           goto error;
       }
 
+    eof = 0;
     for (cell = 0; cell < nfiles; cell++)
       { char  prolog[MAX_NAME], fname[MAX_NAME];
 

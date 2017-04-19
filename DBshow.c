@@ -435,6 +435,8 @@ int main(int argc, char *argv[])
       }
     if (DOARR)
       arrow = New_Read_Buffer(db);
+    else
+      arrow = NULL;
 
     if (UPPER == 1)
       { hilight = 'A'-'a';
