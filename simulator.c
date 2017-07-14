@@ -41,6 +41,8 @@
 #include <unistd.h>
 #include <math.h>
 
+#define PACBIO
+
 #include "DB.h"
 
 static char *Usage[] = { "<genome:dam> [-CU] [-m<int(10000)>]  [-s<int(2000)>] [-e<double(.15)>]",
@@ -61,13 +63,25 @@ static int    HASR;       // -r option is set?
 static int    SEED;       // -r option
 static FILE  *MAP;        // -M option
 
+#ifdef PACBIO
+
 #define INS_RATE  .73333  // insert rate (for PB data)
 #define DEL_RATE  .20000  // deletion rate
 #define IDL_RATE  .93333  // insert + delete rate
 
-// #define INS_RATE  .1  // insert rate (for Illumina data)
-// #define DEL_RATE  .1  // deletion rate
-// #define IDL_RATE  .2  // insert + delete rate
+#elif ILLUMINA
+
+#define INS_RATE  .1  // insert rate (for Illumina data)
+#define DEL_RATE  .1  // deletion rate
+#define IDL_RATE  .2  // insert + delete rate
+
+#else
+
+#define INS_RATE  .33333  // insert rate (equal weighting)
+#define DEL_RATE  .33333  // deletion rate
+#define IDL_RATE  .66666  // insert + delete rate
+
+#endif
 
 //  Complement (in the DNA sense) string *s*.
 

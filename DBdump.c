@@ -165,6 +165,25 @@ int main(int argc, char *argv[])
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage[0]);
         fprintf(stderr,"       %*s %s\n",(int) strlen(Prog_Name),"",Usage[1]);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -r: R #              - read number\n");
+        fprintf(stderr,"      -h: H # string       - original file name string (header)\n");
+        fprintf(stderr,"          L # # #          - location: well, pulse start, pulse end\n");
+        fprintf(stderr,"          Q #              - quality of read (#/1000)\n");
+        fprintf(stderr,"      -s: S # string       - sequence string\n");
+        fprintf(stderr,"      -a: N # # # #        - SNR of ACGT channels (#/100)\n");
+        fprintf(stderr,"          A # string       - arrow pulse-width string\n");
+        fprintf(stderr,"      -i: I # string       - intrinsic quality vector (as an ASCII string)\n");
+        fprintf(stderr,"      -q: d # string       - Quiva deletion values (as an ASCII string)\n");
+        fprintf(stderr,"          c # string       - Quiva deletion character string\n");
+        fprintf(stderr,"          i # string       - Quiva insertion value string\n");
+        fprintf(stderr,"          m # string       - Quiva merge value string\n");
+        fprintf(stderr,"          s # string       - Quiva substitution value string\n");
+        fprintf(stderr,"      -p: P # string       - repeat profile vector (as an ASCII string)\n");
+        fprintf(stderr,"      -m: Tx #n (#b #e)^#n - x'th track on command line, #n intervals all on same line\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -u: Dump entire untrimmed database.\n");
+        fprintf(stderr,"      -U: Output base pairs in upper case letters\n");
         exit (1);
       }
 
