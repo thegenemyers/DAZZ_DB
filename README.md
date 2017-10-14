@@ -279,7 +279,14 @@ question has previously bin split, i.e. one is not interactively asked if they w
 to proceed.
 
 ```
-10. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
+10. DBtrim [-af] [-x<int>] <path:db|dam>
+```
+
+Exactly like DBsplit except that it only resets the trimming parameters (and not the split
+partition itself).
+
+```
+11. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
 ```
 
 Runs the symmetric DUST algorithm over the reads in the untrimmed DB \<path\>.db or
@@ -300,16 +307,18 @@ This permits job parallelism in block-sized chunks, and the resulting sequence o
 block tracks can then be merged into a track for the entire untrimmed DB with Catrack.
 
 ```
-11. Catrack [-v] <path:db|dam> <track:name>
+12. Catrack [-vf] <path:db|dam> <track:name>
 ```
 
 Find all block tracks of the form .\<path\>.#.\<track\>... and merge them into a single
 track, .\<path\>.\<track\>..., for the given DB or DAM.   The block track files must all
 encode the same kind of track data (this is checked), and the files must exist for
-block 1, 2, 3, ... up to the last block number.
+block 1, 2, 3, ... up to the last block number.  If the -f option is set, then the
+concatenation takes place regardless of whether or not the single, combined track
+exists or not.
 
 ```
-12. DBshow [-unqaUQA] [-w<int(80)>] [-m<track>]+
+13. DBshow [-unqaUQA] [-w<int(80)>] [-m<track>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
@@ -348,7 +357,7 @@ fasta2DB, quiva2D, and arrow2DB, giving one a simple way to make a DB of a subse
 the reads for testing purposes.
 
 ```
-13. DBdump [-rhsaqip] [-uU] [-m<track>]+
+14. DBdump [-rhsaqip] [-uU] [-m<track>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
@@ -422,7 +431,7 @@ Arrow pulse width strings are identical to that for the sequence as they are all
 the same length for any given entry.
 
 ```
-14. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
+15. DBstats [-nu] [-b<int(1000)] [-m<track>]+ <path:db|dam>
 ```
 
 Show overview statistics for all the reads in the trimmed data base \<path\>.db or
@@ -434,7 +443,7 @@ intervals along the read can be specified with the -m option in which case a sum
 and a histogram of the interval lengths is displayed.
 
 ```
-15. DBrm <path:db|dam> ...
+16. DBrm <path:db|dam> ...
 ```
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
@@ -442,7 +451,7 @@ there are at least two and often several secondary files for each DB including t
 files, and all of these are removed by DBrm.
 
 ```
-16. DBwipe <path:db|dam> ...
+17. DBwipe <path:db|dam> ...
 ```
 
 Delete any Arrow or Quiver data from the given databases.  This removes the .arw or
@@ -450,7 +459,7 @@ Delete any Arrow or Quiver data from the given databases.  This removes the .arw
 or Quiver.  Basically, converts an A-DB or Q-DB back to a simple S-DB.
 
 ```
-17.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
+18.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
                                   [-w<int(80)>] [-r<int>] [-M<file>]
 ```
@@ -485,7 +494,7 @@ a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in t
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
 ```
-18. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+19. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
 ```
 
 Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.

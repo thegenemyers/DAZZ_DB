@@ -21,12 +21,13 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-v] <path:db|dam> <track:name>";
+static char *Usage = "[-vf] <path:db|dam> <track:name>";
 
 int main(int argc, char *argv[])
 { char *prefix;
   FILE *aout, *dout;
   int   VERBOSE;
+  int   FORCE;
 
   //  Process arguments
 
@@ -38,12 +39,13 @@ int main(int argc, char *argv[])
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
-        { ARG_FLAGS("v") }
+        { ARG_FLAGS("vf") }
       else
         argv[j++] = argv[i];
     argc = j;
 
     VERBOSE = flags['v'];
+    FORCE   = flags['f'];
 
     if (argc != 3)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
@@ -65,14 +67,14 @@ int main(int argc, char *argv[])
     free(root);
 
     aout = fopen(Catenate(prefix,argv[2],".","anno"),"r");
-    if (aout != NULL)
+    if (aout != NULL && !FORCE)
       { fprintf(stderr,"%s: Track file %s%s.anno already exists!\n",Prog_Name,prefix,argv[2]);
         fclose(aout);
         exit (1);
       }
 
     dout = fopen(Catenate(prefix,argv[2],".","data"),"r");
-    if (dout != NULL)
+    if (dout != NULL && !FORCE)
       { fprintf(stderr,"%s: Track file %s%s.data already exists!\n",Prog_Name,prefix,argv[2]);
         fclose(dout);
         exit (1);
