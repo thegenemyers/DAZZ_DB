@@ -315,8 +315,8 @@ track, .\<path\>.\<track\>..., for the given DB or DAM.   The block track files 
 encode the same kind of track data (this is checked), and the files must exist for
 block 1, 2, 3, ... up to the last block number.  If the -f option is set, then the
 concatenation takes place regardless of whether or not the single, combined track
-already exists or not.  If the -d option is set, then if the concatenations is successful,
-then remove all the block tracks.
+already exists or not.  If the -d option is set then every block track is removed after
+the successful construction of the combined track.
 
 ```
 13. DBshow [-unqaUQA] [-w<int(80)>] [-m<mask>]+
@@ -372,7 +372,7 @@ which items of information are output as follows:
 subset of reads is requested).
 
 * -h requests the header information be output as the source file name on an H-line, the
-well # and pulse range on an L-line, and optionally the quality of the read if given on a Q-line.
+ If the -d option is set then every block track is removed after the successful construction of the combined track.well # and pulse range on an L-line, and optionally the quality of the read if given on a Q-line.
 
 * -s requests the sequence be output on an S-line.
 
@@ -450,12 +450,14 @@ and a histogram of the interval lengths is displayed.
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
+If the -v option is set then every file deleted is listed.
 
 ```
 17. DBmv [-v] <old:db|dam> <new:db|dam>
 ```
 
 Rename all the files for the data base old to use the new root.
+If the -v option is set then every file move is displayed.
 
 ```
 18. DBwipe <path:db|dam> ...
