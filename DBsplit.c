@@ -35,9 +35,10 @@
 static char *Usage = "[-af] [-x<int>] [-s<float(200.)>] <path:db|dam>";
 
 int main(int argc, char *argv[])
-{ HITS_DB    db, dbs;
+{ DAZZ_DB    db, dbs;
   int64      dbpos;
   FILE      *dbfile, *ixfile;
+  char      *dbfile_name, *ixfile_name;
   int        status;
 
   int        FORCE;
@@ -105,60 +106,58 @@ int main(int argc, char *argv[])
     pwd    = PathTo(argv[1]);
     if (status)
       { root   = Root(argv[1],".dam");
-        dbfile = Fopen(Catenate(pwd,"/",root,".dam"),"r+");
+        dbfile_name = Strdup(Catenate(pwd,"/",root,".dam"),"Allocating db file name");
       }
     else
       { root   = Root(argv[1],".db");
-        dbfile = Fopen(Catenate(pwd,"/",root,".db"),"r+");
+        dbfile_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocating db file name");
       }
-    ixfile = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
-    if (dbfile == NULL || ixfile == NULL)
+    ixfile_name = Strdup(Catenate(pwd,PATHSEP,root,".idx"),"Allocating index file name");
+    dbfile = Fopen(dbfile_name,"r+");
+    ixfile = Fopen(ixfile_name,"r+");
+    if (dbfile_name == NULL || ixfile_name == NULL || dbfile == NULL || ixfile == NULL)
       exit (1);
     free(pwd);
     free(root);
 
-    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
-      SYSTEM_ERROR
+    FSCANF(dbfile,DB_NFILE,&nfiles)
     for (i = 0; i < nfiles; i++)
-      if (fgets(buffer,2*MAX_NAME+100,dbfile) == NULL)
-        SYSTEM_ERROR
+      FGETS(buffer,2*MAX_NAME+100,dbfile)
 
-    if (fread(&dbs,sizeof(HITS_DB),1,ixfile) != 1)
-      SYSTEM_ERROR
+    FREAD(&dbs,sizeof(DAZZ_DB),1,ixfile)
 
     if (dbs.cutoff >= 0 && !FORCE)
       { printf("You are about to overwrite the current partition settings.  This\n");
         printf("will invalidate any tracks, overlaps, and other derivative files.\n");
         printf("Are you sure you want to proceed? [Y/N] ");
         fflush(stdout);
-        if (fgets(buffer,100,stdin) == NULL)
-          SYSTEM_ERROR
+        fgets(buffer,100,stdin);
         if (index(buffer,'n') != NULL || index(buffer,'N') != NULL)
           { printf("Aborted\n");
             fflush(stdout);
             fclose(dbfile);
+            fclose(ixfile);
             exit (1);
           }
       }
 
-    dbpos = ftello(dbfile);
-    fseeko(dbfile,dbpos,SEEK_SET);
-    fprintf(dbfile,DB_NBLOCK,0);
-    fprintf(dbfile,DB_PARAMS,SIZE,CUTOFF,ALL);
+    dbpos = FTELLO(dbfile);
+    FSEEKO(dbfile,dbpos,SEEK_SET)
+    FPRINTF(dbfile,DB_NBLOCK,0)
+    FPRINTF(dbfile,DB_PARAMS,SIZE,CUTOFF,ALL)
   }
 
-  { HITS_READ *reads  = db.reads;
+  { DAZZ_READ *reads  = db.reads;
     int        nreads = db.ureads;
     int64      totlen;
     int        nblock, ireads, treads, rlen, fno;
     int        i;
 
-
     nblock = 0;
     totlen = 0;
     ireads = 0;
     treads = 0;
-    fprintf(dbfile,DB_BDATA,0,0);
+    FPRINTF(dbfile,DB_BDATA,0,0)
     if (ALL)
       for (i = 0; i < nreads; i++)
         { rlen = reads[i].rlen;
@@ -167,7 +166,7 @@ int main(int argc, char *argv[])
               treads += 1;
               totlen += rlen;
               if (totlen >= SIZE)
-                { fprintf(dbfile,DB_BDATA,i+1,treads);
+                { FPRINTF(dbfile,DB_BDATA,i+1,treads)
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -182,7 +181,7 @@ int main(int argc, char *argv[])
               treads += 1;
               totlen += rlen;
               if (totlen >= SIZE)
-                { fprintf(dbfile,DB_BDATA,i+1,treads);
+                { FPRINTF(dbfile,DB_BDATA,i+1,treads)
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -191,26 +190,26 @@ int main(int argc, char *argv[])
         }
 
     if (ireads > 0)
-      { fprintf(dbfile,DB_BDATA,nreads,treads);
+      { FPRINTF(dbfile,DB_BDATA,nreads,treads)
         nblock += 1;
       }
     fno = fileno(dbfile);
-    if (ftruncate(fno,ftello(dbfile)) < 0)
-      SYSTEM_ERROR
+    if (ftruncate(fno,FTELLO(dbfile)) < 0)
+      SYSTEM_WRITE_ERROR
 
-    fseeko(dbfile,dbpos,SEEK_SET);
-    fprintf(dbfile,DB_NBLOCK,nblock);
+    FSEEKO(dbfile,dbpos,SEEK_SET)
+    FPRINTF(dbfile,DB_NBLOCK,nblock)
 
     dbs.cutoff = CUTOFF;
     if (ALL)
       dbs.allarr |= DB_ALL;
     dbs.treads = treads;
-    rewind(ixfile);
-    fwrite(&dbs,sizeof(HITS_DB),1,ixfile);
+    FSEEKO(ixfile,0,SEEK_SET)
+    FWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
   }
 
-  fclose(ixfile);
-  fclose(dbfile);
+  FCLOSE(ixfile)
+  FCLOSE(dbfile)
   Close_DB(&db);
 
   exit (0);

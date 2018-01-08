@@ -25,9 +25,10 @@
 static char *Usage = "[-af] [-x<int>] <path:db|dam>";
 
 int main(int argc, char *argv[])
-{ HITS_DB    db, dbs;
+{ DAZZ_DB    db, dbs;
   int64      dbpos;
   FILE      *dbfile, *ixfile;
+  char      *dbfile_name, *ixfile_name;
   int        nblocks;
   int        status;
 
@@ -38,12 +39,10 @@ int main(int argc, char *argv[])
   { int   i, j, k;
     int   flags[128];
     char *eptr;
-    float size;
 
     ARG_INIT("DBtrim")
 
     CUTOFF = 0;
-    size   = 200;
 
     j = 1;
     for (i = 1; i < argc; i++)
@@ -89,26 +88,25 @@ int main(int argc, char *argv[])
     pwd  = PathTo(argv[1]);
     if (status)
       { root   = Root(argv[1],".dam");
-        dbfile = Fopen(Catenate(pwd,"/",root,".dam"),"r+");
+        dbfile_name = Strdup(Catenate(pwd,"/",root,".dam"),"Allocating db file name");
       }
     else
       { root   = Root(argv[1],".db");
-        dbfile = Fopen(Catenate(pwd,"/",root,".db"),"r+");
+        dbfile_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocating db file name");
       }
-    ixfile = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"r+");
-    if (dbfile == NULL || ixfile == NULL)
+    ixfile_name = Strdup(Catenate(pwd,PATHSEP,root,".idx"),"Allocating index file name");
+    dbfile = Fopen(dbfile_name,"r+");
+    ixfile = Fopen(ixfile_name,"r+");
+    if (dbfile_name == NULL || ixfile_name == NULL || dbfile == NULL || ixfile == NULL)
       exit (1);
     free(pwd);
     free(root);
 
-    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
-      SYSTEM_ERROR
+    FSCANF(dbfile,DB_NFILE,&nfiles)
     for (i = 0; i < nfiles; i++)
-      if (fgets(buffer,2*MAX_NAME+100,dbfile) == NULL)
-        SYSTEM_ERROR
+      FGETS(buffer,2*MAX_NAME+100,dbfile)
 
-    if (fread(&dbs,sizeof(HITS_DB),1,ixfile) != 1)
-      SYSTEM_ERROR
+    FREAD(&dbs,sizeof(DAZZ_DB),1,ixfile)
 
     if (dbs.cutoff >= 0)
       { if (!FORCE)
@@ -116,11 +114,11 @@ int main(int argc, char *argv[])
             printf("This will invalidate any .las files produced by daligner\n");
             printf("Are you sure you want to proceed? [Y/N] ");
             fflush(stdout);
-            if (fgets(buffer,100,stdin) == NULL)
-              SYSTEM_ERROR
+            fgets(buffer,100,stdin);
             if (index(buffer,'n') != NULL || index(buffer,'N') != NULL)
               { printf("Aborted\n");
                 fflush(stdout);
+                fclose(ixfile);
                 fclose(dbfile);
                 exit (1);
               }
@@ -131,15 +129,15 @@ int main(int argc, char *argv[])
         exit (1);
       }
 
-    fscanf(dbfile,DB_NBLOCK,&nblocks);
+    FSCANF(dbfile,DB_NBLOCK,&nblocks)
 
-    dbpos = ftello(dbfile);
-    fscanf(dbfile,DB_PARAMS,&size,&cutoff,&all);
-    fseeko(dbfile,dbpos,SEEK_SET);
-    fprintf(dbfile,DB_PARAMS,size,CUTOFF,ALL);
+    dbpos = FTELLO(dbfile);
+    FSCANF(dbfile,DB_PARAMS,&size,&cutoff,&all)
+    FSEEKO(dbfile,dbpos,SEEK_SET)
+    FPRINTF(dbfile,DB_PARAMS,size,CUTOFF,ALL)
   }
 
-  { HITS_READ *reads  = db.reads;
+  { DAZZ_READ *reads  = db.reads;
     int        uread, tread;
     int        rlen;
     int        b, u, t;
@@ -148,8 +146,8 @@ int main(int argc, char *argv[])
     t = 0;
     fprintf(dbfile,DB_BDATA,0,0);
     for (b = 0; b < nblocks; b++)
-      { dbpos = ftello(dbfile);
-        fscanf(dbfile,DB_BDATA,&uread,&tread);
+      { dbpos = FTELLO(dbfile);
+        FSCANF(dbfile,DB_BDATA,&uread,&tread)
 
         if (ALL)
           while (u < uread)
@@ -165,20 +163,20 @@ int main(int argc, char *argv[])
               u += 1;
             }
 
-        fseeko(dbfile,dbpos,SEEK_SET);
-        fprintf(dbfile,DB_BDATA,uread,t);
+        FSEEKO(dbfile,dbpos,SEEK_SET)
+        FPRINTF(dbfile,DB_BDATA,uread,t)
       }
 
     dbs.cutoff = CUTOFF;
     if (ALL)
       dbs.allarr |= DB_ALL;
     dbs.treads = t;
-    rewind(ixfile);
-    fwrite(&dbs,sizeof(HITS_DB),1,ixfile);
+    FSEEKO(ixfile,0,SEEK_SET)
+    FWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
   }
 
-  fclose(ixfile);
-  fclose(dbfile);
+  FCLOSE(ixfile)
+  FCLOSE(dbfile)
   Close_DB(&db);
 
   exit (0);

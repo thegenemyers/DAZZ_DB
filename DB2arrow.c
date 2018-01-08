@@ -16,8 +16,9 @@
 static char *Usage = "[-v] [-w<int(80)>] <path:db>";
 
 int main(int argc, char *argv[])
-{ HITS_DB    _db, *db = &_db;
+{ DAZZ_DB    _db, *db = &_db;
   FILE       *dbfile;
+  char       *dbfile_name;
   int         VERBOSE, WIDTH;
 
   //  Process arguments
@@ -74,25 +75,25 @@ int main(int argc, char *argv[])
         exit (1);
       }
 
-    pwd    = PathTo(argv[1]);
-    root   = Root(argv[1],".db");
-    dbfile = Fopen(Catenate(pwd,"/",root,".db"),"r");
+    pwd         = PathTo(argv[1]);
+    root        = Root(argv[1],".db");
+    dbfile_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocting db file name");
+    dbfile      = Fopen(dbfile_name,"r");
     free(pwd);
     free(root);
-    if (dbfile == NULL)
+    if (dbfile_name == NULL || dbfile == NULL)
       exit (1);
   }
 
   //  For each cell do:
 
-  { HITS_READ  *reads;
+  { DAZZ_READ  *reads;
     char        lname[MAX_NAME];
     FILE       *ofile = NULL;
     int         f, first, last, ofirst, nfiles;
     char       *read;
 
-    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
-      SYSTEM_ERROR
+    FSCANF(dbfile,DB_NFILE,&nfiles)
 
     reads = db->reads;
     read  = New_Read_Buffer(db);
@@ -103,8 +104,7 @@ int main(int argc, char *argv[])
 
         //  Scan db image file line, create .arrow file for writing
 
-        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
-          SYSTEM_ERROR
+        FSCANF(dbfile,DB_FDATA,&last,fname,prolog)
 
         if (f == 0 || strcmp(fname,lname) != 0)
           { if (f > 0)
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
                     fflush(stderr);
                   }
                 else
-                  fclose(ofile);
+                  FCLOSE(ofile)
               }
 
             if (strcmp(fname,"stdout") == 0)
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
           { int        j, len;
             uint64     big;
             float      snr[4];
-            HITS_READ *r;
+            DAZZ_READ *r;
 
             r     = reads + i;
             len   = r->rlen;
@@ -154,16 +154,17 @@ int main(int argc, char *argv[])
               { snr[3-j] = (big & 0xffff) / 100.;
                 big    >>= 16;
               }
-            fprintf(ofile,">%s",prolog);
-            fprintf(ofile," SN=%.2f,%.2f,%.2f,%.2f",snr[0],snr[1],snr[2],snr[3]);
-            fprintf(ofile,"\n");
+
+            FPRINTF(ofile,">%s",prolog)
+            FPRINTF(ofile," SN=%.2f,%.2f,%.2f,%.2f",snr[0],snr[1],snr[2],snr[3])
+            FPRINTF(ofile,"\n")
 
             Load_Arrow(db,i,read,1);
 
             for (j = 0; j+WIDTH < len; j += WIDTH)
-              fprintf(ofile,"%.*s\n",WIDTH,read+j);
+              FPRINTF(ofile,"%.*s\n",WIDTH,read+j)
             if (j < len)
-              fprintf(ofile,"%s\n",read+j);
+              FPRINTF(ofile,"%s\n",read+j)
           }
 
         first = last;
@@ -175,7 +176,7 @@ int main(int argc, char *argv[])
             fflush(stderr);
           }
         else
-          fclose(ofile);
+          FCLOSE(ofile)
       }
   }
 

@@ -98,8 +98,8 @@ int main(int argc, char *argv[])
   FILE      *quiva, *indx;
   int64      coff;
 
-  HITS_DB    db;
-  HITS_READ *reads;
+  DAZZ_DB    db;
+  DAZZ_READ *reads;
   int        nfiles;
 
   FILE      *temp;
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
     { fprintf(stderr,"%s",Ebuffer);
       exit (1);
     }
-  if (fread(&db,sizeof(HITS_DB),1,indx) != 1)
+  if (fread(&db,sizeof(DAZZ_DB),1,indx) != 1)
     { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
       exit (1);
     }
@@ -183,12 +183,12 @@ int main(int argc, char *argv[])
       exit (1);
     }
 
-  reads = (HITS_READ *) Malloc(sizeof(HITS_READ)*db.ureads,"Allocating DB index");
+  reads = (DAZZ_READ *) Malloc(sizeof(DAZZ_READ)*db.ureads,"Allocating DB index");
   if (reads == NULL)
     { fprintf(stderr,"%s",Ebuffer);
       exit (1);
     }
-  if (fread(reads,sizeof(HITS_READ),db.ureads,indx) != (size_t) (db.ureads))
+  if (fread(reads,sizeof(DAZZ_READ),db.ureads,indx) != (size_t) (db.ureads))
     { fprintf(stderr,"%s: %s.idx is corrupted, read failed\n",Prog_Name,root);
       exit (1);
     }
@@ -478,8 +478,8 @@ int main(int argc, char *argv[])
   //  Write the db record and read index into .idx and clean up
 
   rewind(indx);
-  fwrite(&db,sizeof(HITS_DB),1,indx);
-  fwrite(reads,sizeof(HITS_READ),db.ureads,indx);
+  fwrite(&db,sizeof(DAZZ_DB),1,indx);
+  fwrite(reads,sizeof(DAZZ_READ),db.ureads,indx);
 
   fclose(istub);
   fclose(indx);

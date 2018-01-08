@@ -2,8 +2,8 @@ DEST_DIR = ~/bin
 
 CFLAGS = -O3 -Wall -Wextra -Wno-unused-result -fno-strict-aliasing
 
-ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm simulator \
-      fasta2DAM DAM2fasta DBdump rangen arrow2DB DB2arrow DBwipe DBtrim
+ALL = fasta2DB DB2fasta quiva2DB DB2quiva DBsplit DBdust Catrack DBshow DBstats DBrm DBmv \
+      simulator fasta2DAM DAM2fasta DBdump rangen arrow2DB DB2arrow DBwipe DBtrim
 
 all: $(ALL)
 
@@ -48,6 +48,9 @@ DBstats: DBstats.c DB.c DB.h QV.c QV.h
 
 DBrm: DBrm.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o DBrm DBrm.c DB.c QV.c -lm
+
+DBmv: DBmv.c DB.c DB.h QV.c QV.h
+	gcc $(CFLAGS) -o DBmv DBmv.c DB.c QV.c -lm
 
 simulator: simulator.c DB.c DB.h QV.c QV.h
 	gcc $(CFLAGS) -o simulator simulator.c DB.c QV.c -lm

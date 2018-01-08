@@ -189,10 +189,11 @@ static double sample_unorm(double x)
 //    consists of its contigs with a random sequence filling the gaps (generated according to
 //    the bp frequency in db.freq[4]).
 
-HITS_DB *load_and_fill(char *name, int *pscaffs)
-{ static HITS_DB db;
-  HITS_READ *reads;
+DAZZ_DB *load_and_fill(char *name, int *pscaffs)
+{ static DAZZ_DB db;
+  DAZZ_READ *reads;
   FILE      *bases;
+  char      *bases_name;
   char      *seq;
   int        nreads, nscaffs;
   int        i, c;
@@ -232,8 +233,9 @@ HITS_DB *load_and_fill(char *name, int *pscaffs)
   for (i = 0; i < nscaffs; i++)
     ctot += reads[i].coff+1;
 
-  bases = Fopen(Catenate(db.path,"","",".bps"),"r");
-  if (bases == NULL)
+  bases_name = Strdup(Catenate(db.path,"","",".bps"),"Allocating base-pair file name");
+  bases = Fopen(bases_name,"r");
+  if (bases_name == NULL || bases == NULL)
     exit (1);
 
   seq = (char *) Malloc(ctot+4,"Allocating space for genome");
@@ -277,14 +279,10 @@ HITS_DB *load_and_fill(char *name, int *pscaffs)
       len = reads[i].rlen;
       off = reads[i].boff;
       if (ftello(bases) != off)
-        fseeko(bases,off,SEEK_SET);
+        FSEEKO(bases,off,SEEK_SET)
       clen = COMPRESSED_LEN(len);
       if (clen > 0)
-        { if (fread(seq+u,clen,1,bases) != 1)
-            { EPRINTF(EPLACE,"%s: Read of .bps file failed\n",Prog_Name);
-              exit (1);
-            }
-        }
+        FREAD(seq+u,clen,1,bases)
       Uncompress_Read(len,seq+u);
       if (reads[i].origin == 0)
         reads[c].boff = o;
@@ -313,8 +311,8 @@ HITS_DB *load_and_fill(char *name, int *pscaffs)
 //    output as fasta entries with the PacBio-specific header format that contains the
 //    sampling interval, read length, and a read id.
 
-static void shotgun(HITS_DB *source, int nscaffs)
-{ HITS_READ *reads;
+static void shotgun(DAZZ_DB *source, int nscaffs)
+{ DAZZ_READ *reads;
   int        gleng;
   int        maxlen, nreads, qv;
   int64      totlen, totbp;
@@ -464,18 +462,18 @@ static void shotgun(HITS_DB *source, int nscaffs)
           rbeg = j;
         }
 
-      printf(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv);
+      PRINTF(">Sim/%d/%d_%d RQ=0.%d\n",nreads+1,0,elen,qv)
       if (UPPER)
         Upper_Read(rbuffer);
       else
         Lower_Read(rbuffer);
       for (j = 0; j+WIDTH < elen; j += WIDTH)
-        printf("%.*s\n",WIDTH,rbuffer+j);
+        PRINTF("%.*s\n",WIDTH,rbuffer+j)
       if (j < elen)
-        printf("%s\n",rbuffer+j);
+        PRINTF("%s\n",rbuffer+j)
 
        if (MAP != NULL)
-         fprintf(MAP," %6d %9d %9d\n",scf,rbeg,rend);
+         FPRINTF(MAP," %6d %9d %9d\n",scf,rbeg,rend)
 
        totlen += elen;
        nreads += 1;
@@ -483,7 +481,7 @@ static void shotgun(HITS_DB *source, int nscaffs)
 }
 
 int main(int argc, char *argv[])
-{ HITS_DB *source;
+{ DAZZ_DB *source;
   int      nscaffs;
 
   //  Process command line

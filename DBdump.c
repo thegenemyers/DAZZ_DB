@@ -21,7 +21,7 @@
 #endif
 
 static char *Usage[] =
-    { "[-rhsaiqp] [-uU] [-m<track>]+",
+    { "[-rhsaiqp] [-uU] [-m<mask>]+",
       "           <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
 
@@ -55,7 +55,7 @@ int next_read(File_Iterator *it)
   if (fgets(nbuffer,MAX_BUFFER,it->input) == NULL)
     { if (feof(it->input))
         return (1);
-      SYSTEM_ERROR;
+      SYSTEM_READ_ERROR;
     }
   if ((eol = index(nbuffer,'\n')) == NULL)
     { fprintf(stderr,"%s: Line %d in read list is longer than %d chars!\n",
@@ -92,13 +92,14 @@ static int prof_map[41] =
   };
 
 int main(int argc, char *argv[])
-{ HITS_DB    _db, *db = &_db;
+{ DAZZ_DB    _db, *db = &_db;
   int         Quiva_DB, Arrow_DB;
-  FILE       *hdrs = NULL;
-  int64      *qv_idx = NULL;
-  uint8      *qv_val = NULL;
-  int64      *pf_idx = NULL;
-  uint8      *pf_val = NULL;
+  FILE       *hdrs      = NULL;
+  char       *hdrs_name = NULL;
+  int64      *qv_idx    = NULL;
+  uint8      *qv_val    = NULL;
+  int64      *pf_idx    = NULL;
+  uint8      *pf_val    = NULL;
 
   int         nfiles;
   char      **flist = NULL;
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
 
   int          MMAX, MTOP;
   char       **MASK;
-  HITS_TRACK **MTRACK;
+  DAZZ_TRACK **MTRACK;
 
   //  Process arguments
 
@@ -173,14 +174,16 @@ int main(int argc, char *argv[])
         fprintf(stderr,"      -s: S # string       - sequence string\n");
         fprintf(stderr,"      -a: N # # # #        - SNR of ACGT channels (#/100)\n");
         fprintf(stderr,"          A # string       - arrow pulse-width string\n");
-        fprintf(stderr,"      -i: I # string       - intrinsic quality vector (as an ASCII string)\n");
+        fprintf(stderr,"      -i: I # string       ");
+        fprintf(stderr,"- intrinsic quality vector (as an ASCII string)\n");
         fprintf(stderr,"      -q: d # string       - Quiva deletion values (as an ASCII string)\n");
         fprintf(stderr,"          c # string       - Quiva deletion character string\n");
         fprintf(stderr,"          i # string       - Quiva insertion value string\n");
         fprintf(stderr,"          m # string       - Quiva merge value string\n");
         fprintf(stderr,"          s # string       - Quiva substitution value string\n");
         fprintf(stderr,"      -p: P # string       - repeat profile vector (as an ASCII string)\n");
-        fprintf(stderr,"      -m: Tx #n (#b #e)^#n - x'th track on command line, #n intervals all on same line\n");
+        fprintf(stderr,"      -m: Tx #n (#b #e)^#n ");
+        fprintf(stderr,"- x'th track on command line, #n intervals all on same line\n");
         fprintf(stderr,"\n");
         fprintf(stderr,"      -u: Dump entire untrimmed database.\n");
         fprintf(stderr,"      -U: Output base pairs in upper case letters\n");
@@ -211,7 +214,8 @@ int main(int argc, char *argv[])
 
         if (db->part > 0)
           *rindex(root,'.') = '\0';
-        hdrs = Fopen(Catenate(pwd,PATHSEP,root,".hdr"),"r");
+        hdrs_name = Strdup(Catenate(pwd,PATHSEP,root,".hdr"),"Allocating header file name");
+        hdrs      = Fopen(hdrs_name,"r");
         if (hdrs == NULL)
           exit (1);
         DAM = 1;
@@ -257,7 +261,7 @@ int main(int argc, char *argv[])
 
   { int i, status, kind;
 
-    MTRACK = Malloc(sizeof(HITS_TRACK *)*MTOP,"Allocation of track pointer vector");
+    MTRACK = Malloc(sizeof(DAZZ_TRACK *)*MTOP,"Allocation of track pointer vector");
     if (MTRACK == NULL)
       exit (1);
 
@@ -291,20 +295,21 @@ int main(int argc, char *argv[])
   if (!DAM)
     { char *pwd, *root;
       FILE *dstub;
+      char *dstub_name;
       int   i;
 
       root   = Root(argv[1],".db");
       pwd    = PathTo(argv[1]);
       if (db->part > 0)
         *rindex(root,'.') = '\0';
-      dstub  = Fopen(Catenate(pwd,"/",root,".db"),"r");
-      if (dstub == NULL)
+      dstub_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocating db file name");
+      dstub      = Fopen(dstub_name,"r");
+      if (dstub_name == NULL || dstub == NULL)
         exit (1);
       free(pwd);
       free(root);
 
-      if (fscanf(dstub,DB_NFILE,&nfiles) != 1)
-        SYSTEM_ERROR
+      FSCANF(dstub,DB_NFILE,&nfiles)
 
       flist = (char **) Malloc(sizeof(char *)*nfiles,"Allocating file list");
       findx = (int *) Malloc(sizeof(int *)*(nfiles+1),"Allocating file index");
@@ -317,12 +322,12 @@ int main(int argc, char *argv[])
       for (i = 0; i < nfiles; i++)
         { char prolog[MAX_NAME], fname[MAX_NAME];
   
-          if (fscanf(dstub,DB_FDATA,findx+i,fname,prolog) != 3)
-            SYSTEM_ERROR
+          FSCANF(dstub,DB_FDATA,findx+i,fname,prolog)
           if ((flist[i] = Strdup(prolog,"Adding to file list")) == NULL)
             exit (1);
         }
 
+      free(dstub_name);
       fclose(dstub);
 
       //  If TRIM (the default) then "trim" prolog ranges and the DB
@@ -330,7 +335,7 @@ int main(int argc, char *argv[])
       if (TRIM)
         { int        nid, oid, lid;
           int        cutoff, allflag;
-          HITS_READ *reads;
+          DAZZ_READ *reads;
 
           reads  = db->reads - db->ufirst;
           cutoff = db->cutoff;
@@ -376,7 +381,7 @@ int main(int argc, char *argv[])
 
   if (DOIQV)
     { int         status, kind;
-      HITS_TRACK *track;
+      DAZZ_TRACK *track;
 
       status = Check_Track(db,"qual",&kind);
       if (status == -2)
@@ -394,7 +399,7 @@ int main(int argc, char *argv[])
 
   if (DOPRF)
     { int         status, kind;
-      HITS_TRACK *track;
+      DAZZ_TRACK *track;
 
       status = Check_Track(db,"prof",&kind);
       if (status == -2)
@@ -498,7 +503,7 @@ int main(int argc, char *argv[])
 
   //  Scan to count the size of things
 
-  { HITS_READ  *reads;
+  { DAZZ_READ  *reads;
     int         c, b, e, i, m;
     int         map, substr;
     int64       noreads;
@@ -549,7 +554,7 @@ int main(int argc, char *argv[])
         for (i = b; i < e; i++)
           { int         len, ten;
             int         fst, lst;
-            HITS_READ  *r;
+            DAZZ_READ  *r;
 
             r   = reads + i;
             len = r->rlen;
@@ -562,8 +567,8 @@ int main(int argc, char *argv[])
                 if (DAM)
                   { char header[MAX_NAME];
 
-                    fseeko(hdrs,r->coff,SEEK_SET);
-                    fgets(header,MAX_NAME,hdrs);
+                    FSEEKO(hdrs,r->coff,SEEK_SET)
+                    FGETS(header,MAX_NAME,hdrs)
                     header[strlen(header)-1] = '\0';
                     ten = strlen(header);
                   }
@@ -627,34 +632,34 @@ int main(int argc, char *argv[])
           }
       }
 
-    printf("+ R %lld\n",noreads);
-    printf("+ M %d\n",MTOP);
+    PRINTF("+ R %lld\n",noreads)
+    PRINTF("+ M %d\n",MTOP)
     if (DOHDR)
-      { printf("+ H %lld\n",hdrtot);
-        printf("@ H %lld\n",hdrmax);
+      { PRINTF("+ H %lld\n",hdrtot)
+        PRINTF("@ H %lld\n",hdrmax)
       }
     for (m = 0; m < MTOP; m++)
-      { printf("+ T%d %lld\n",m,trktot[m]);
-        printf("@ T%d %lld\n",m,trkmax[m]);
+      { PRINTF("+ T%d %lld\n",m,trktot[m])
+        PRINTF("@ T%d %lld\n",m,trkmax[m])
       }
     if (DOSEQ | DOQVS | DOARW)
-      { printf("+ S %lld\n",seqtot);
-        printf("@ S %lld\n",seqmax);
+      { PRINTF("+ S %lld\n",seqtot)
+        PRINTF("@ S %lld\n",seqmax)
       }
     if (DOIQV)
-      { printf("+ I %lld\n",iqvtot);
-        printf("@ I %lld\n",iqvmax);
+      { PRINTF("+ I %lld\n",iqvtot)
+        PRINTF("@ I %lld\n",iqvmax)
       }
     if (DOPRF)
-      { printf("+ P %lld\n",prftot);
-        printf("@ P %lld\n",prfmax);
+      { PRINTF("+ P %lld\n",prftot)
+        PRINTF("@ P %lld\n",prfmax)
       }
   }
 
   //  Display each read (and/or QV streams) in the active DB according to the
   //    range pairs in pts[0..reps) and according to the display options.
 
-  { HITS_READ  *reads;
+  { DAZZ_READ  *reads;
     char       *read, *arrow, **entry;
     int         c, b, e, i, m;
     int         substr;
@@ -703,7 +708,7 @@ int main(int argc, char *argv[])
           { int         len;
             int         fst, lst;
             int         flags, qv;
-            HITS_READ  *r;
+            DAZZ_READ  *r;
 
             r   = reads + i;
             len = r->rlen;
@@ -716,21 +721,21 @@ int main(int argc, char *argv[])
               { if (DAM)
                   { char header[MAX_NAME];
 
-                    fseeko(hdrs,r->coff,SEEK_SET);
-                    fgets(header,MAX_NAME,hdrs);
+                    FSEEKO(hdrs,r->coff,SEEK_SET)
+                    FGETS(header,MAX_NAME,hdrs)
                     header[strlen(header)-1] = '\0';
-                    printf("H %ld %s\n",strlen(header),header);
-                    printf("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len);
+                    PRINTF("H %ld %s\n",strlen(header),header)
+                    PRINTF("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len)
                   }
                 else
                   { while (i < findx[map-1])
                       map -= 1;
                     while (i >= findx[map])
                       map += 1;
-                    printf("H %ld %s\n",strlen(flist[map]),flist[map]);
-                    printf("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len);
+                    PRINTF("H %ld %s\n",strlen(flist[map]),flist[map])
+                    PRINTF("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len)
                     if (Quiva_DB && qv > 0)
-                      printf("Q %d\n",qv);
+                      PRINTF("Q %d\n",qv)
                     else if (Arrow_DB)
                       { int   j, snr[4];
                         int64 big;
@@ -740,7 +745,7 @@ int main(int argc, char *argv[])
                           { snr[3-j] = (big & 0xffff);
                             big    >>= 16;
                           }
-                        printf("N %d %d %d %d\n",snr[0],snr[1],snr[2],snr[3]);
+                        PRINTF("N %d %d %d %d\n",snr[0],snr[1],snr[2],snr[3])
                       }
                   }
               }
@@ -762,12 +767,12 @@ int main(int argc, char *argv[])
 
                 s = (anno[i] >> 2);
                 f = (anno[i+1] >> 2);
-                printf("T%d %lld ",m,(f-s)/2);
+                PRINTF("T%d %lld ",m,(f-s)/2)
                 if (s < f)
                   { for (j = s; j < f; j += 2)
-                      printf(" %d %d",data[j],data[j+1]);
+                      PRINTF(" %d %d",data[j],data[j+1])
                   }
-                printf("\n");
+                PRINTF("\n")
               }
 
             if (substr)
@@ -780,13 +785,13 @@ int main(int argc, char *argv[])
               }
 
             if (DOSEQ)
-              { printf("S %d ",lst-fst);
-                printf("%.*s\n",lst-fst,read+fst);
+              { PRINTF("S %d ",lst-fst)
+                PRINTF("%.*s\n",lst-fst,read+fst)
               }
 
             if (DOARW)
-              { printf("A %d ",lst-fst);
-                printf("%.*s\n",lst-fst,arrow+fst);
+              { PRINTF("A %d ",lst-fst)
+                PRINTF("%.*s\n",lst-fst,arrow+fst)
               }
 
             if (DOIQV)
@@ -794,10 +799,12 @@ int main(int argc, char *argv[])
 
                 k = qv_idx[i];
                 e = qv_idx[i+1];
-                printf("I %lld ",e-k);
+                PRINTF("I %lld ",e-k)
                 while (k < e)
-                  putchar(qv_map[qv_val[k++]]);
-                printf("\n");
+                  { if (putchar(qv_map[qv_val[k++]]) == EOF)
+                      SYSTEM_WRITE_ERROR
+                  }
+                PRINTF("\n")
               }
 
             if (DOPRF)
@@ -805,23 +812,27 @@ int main(int argc, char *argv[])
 
                 k = pf_idx[i];
                 e = pf_idx[i+1];
-                printf("P %lld ",e-k);
+                PRINTF("P %lld ",e-k)
                 while (k < e)
-                  putchar(prof_map[pf_val[k++]]);
-                printf("\n");
+                  { if (putchar(prof_map[pf_val[k++]]) == EOF)
+                      SYSTEM_WRITE_ERROR
+                  }
+                PRINTF("\n")
               }
 
             if (DOQVS)
               { int k;
 
                 for (k = 0; k < 5; k++)
-                  { printf("%c %d ",qvname[k],lst-fst);
-                    printf("%.*s\n",lst-fst,entry[k]+fst);
+                  { PRINTF("%c %d ",qvname[k],lst-fst)
+                    PRINTF("%.*s\n",lst-fst,entry[k]+fst)
                   }
               }
           }
       }
   }
+
+  FCLOSE(stdout)
 
   if (input_pts)
     { fclose(input);

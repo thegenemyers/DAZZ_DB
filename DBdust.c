@@ -43,7 +43,7 @@ typedef struct _cand
   } Candidate;
 
 int main(int argc, char *argv[])
-{ HITS_DB   _db, *db = &_db;
+{ DAZZ_DB   _db, *db = &_db;
   FILE      *afile, *dfile;
   int64      indx;
   int        nreads;
@@ -128,29 +128,29 @@ int main(int argc, char *argv[])
         dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"w");
         if (dfile == NULL || afile == NULL)
           exit (1);
-        fwrite(&(db->nreads),sizeof(int),1,afile);
-        fwrite(&size,sizeof(int),1,afile);
+        FWRITE(&(db->nreads),sizeof(int),1,afile)
+        FWRITE(&size,sizeof(int),1,afile)
         nreads = 0;
         indx = 0;
-        fwrite(&indx,sizeof(int64),1,afile);
+        FWRITE(&indx,sizeof(int64),1,afile)
       }
     else
       { dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"r+");
         if (dfile == NULL)
           exit (1);
         if (fread(&nreads,sizeof(int),1,afile) != 1)
-          SYSTEM_ERROR
+          SYSTEM_READ_ERROR
         if (nreads >= db->nreads)
           { fclose(afile);
             fclose(dfile);
             exit(0);
           }
-        fseeko(afile,0,SEEK_SET);
-        fwrite(&(db->nreads),sizeof(int),1,afile);
-        fwrite(&size,sizeof(int),1,afile);
-        fseeko(afile,0,SEEK_END);
-        fseeko(dfile,0,SEEK_END);
-        indx = ftello(dfile);
+        FSEEKO(afile,0,SEEK_SET)
+        FWRITE(&(db->nreads),sizeof(int),1,afile)
+        FWRITE(&size,sizeof(int),1,afile)
+        FSEEKO(afile,0,SEEK_END)
+        FSEEKO(dfile,0,SEEK_END)
+        indx = FTELLO(dfile);
       }
 
     free(pwd);
@@ -430,8 +430,8 @@ int main(int argc, char *argv[])
               }
           mtop  = mask + ntop;
           indx += ntop*sizeof(int);
-          fwrite(&indx,sizeof(int64),1,afile);
-          fwrite(mask1,sizeof(int),ntop,dfile);
+          FWRITE(&indx,sizeof(int64),1,afile)
+          FWRITE(mask1,sizeof(int),ntop,dfile)
         }
 
 #ifdef DEBUG
@@ -462,8 +462,8 @@ int main(int argc, char *argv[])
       }
   }
 
-  fclose(afile);
-  fclose(dfile);
+  FCLOSE(afile)
+  FCLOSE(dfile)
 
   Close_DB(db);
 

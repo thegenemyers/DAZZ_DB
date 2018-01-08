@@ -17,24 +17,49 @@
 
 #include "DB.h"
 
-static char *Usage = "<path:db|dam> ... ";
+static char *Usage = "[-v] <path:db|dam> ... ";
 
-static void HANDLER(char *path, char *name)
-{ (void) name;
-  unlink(path);
+static int VERBOSE;
+
+static void HANDLER(char *path, char *exten)
+{ (void) exten;
+  if (unlink(path) != 0)
+    fprintf(stderr,"%s: [WARNING] Couldn't delete file %s\n",Prog_Name,path);
+  else if (VERBOSE)
+    fprintf(stderr,"  Deleting %s\n",path);
 }
 
 int main(int argc, char *argv[])
-{ int   i;
+{
+  //  Process arguments
 
-  Prog_Name = Strdup("DBrm","");
+  { int  i, j, k;
+    int  flags[128];
 
-  if (argc <= 1)
-    fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+    ARG_INIT("DBrm")
 
-  for (i = 1; i < argc; i++)
-    if (List_DB_Files(argv[i],HANDLER) < 0)
-      fprintf(stderr,"%s: Could not list database %s\n",Prog_Name,argv[i]);
+    j = 1;
+    for (i = 1; i < argc; i++)
+      if (argv[i][0] == '-')
+        { ARG_FLAGS("v") }
+      else
+        argv[j++] = argv[i];
+    argc = j;
+
+    VERBOSE = flags['v'];
+
+    if (argc <= 1)
+      { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        exit (1);
+      }
+  }
+
+  { int i;
+
+    for (i = 1; i < argc; i++)
+      if (List_DB_Files(argv[i],HANDLER) < 0)
+        fprintf(stderr,"%s: [WARNING] Could not find database %s\n",Prog_Name,argv[i]);
+  }
 
   exit (0);
 }

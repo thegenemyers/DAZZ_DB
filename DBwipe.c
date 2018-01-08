@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "DB.h"
 
@@ -35,7 +36,7 @@
 static char *Usage = "<path:db>";
 
 int main(int argc, char *argv[])
-{ HITS_DB    db;
+{ DAZZ_DB    db;
   int        status;
 
   Prog_Name = Strdup("DBwipe","Allocating Program Name");
@@ -61,26 +62,37 @@ int main(int argc, char *argv[])
 
   { char    *pwd, *root;
     FILE    *index;
+    char    *index_name;
     int      i;
 
     pwd    = PathTo(argv[1]);
     root   = Root(argv[1],".db");
-    unlink(Catenate(pwd,PATHSEP,root,".arw"));
-    unlink(Catenate(pwd,PATHSEP,root,".qvs"));
+    if (unlink(Catenate(pwd,PATHSEP,root,".arw")) < 0)
+      { if (errno != ENOENT)
+          { fprintf(stderr,"%s: [WARNING] Could not delete %s.arw\n",Prog_Name,root);
+            exit (1);
+          }
+      }
+    if (unlink(Catenate(pwd,PATHSEP,root,".qvs")) < 0)
+      { if (errno != ENOENT)
+          { fprintf(stderr,"%s: [WARNING] Could not delete %s.qvs\n",Prog_Name,root);
+            exit (1);
+          }
+      }
 
     for (i = 0; i < db.nreads; i++)
       db.reads[i].coff = -1;
     db.allarr &= ~DB_ARROW;
 
-    if ((index = Fopen(Catenate(pwd,PATHSEP,root,".idx"),"w")) == NULL)
-      { fprintf(stderr,"%s: Cannot open %s%s%s.idx\n",Prog_Name,pwd,PATHSEP,root);
-        exit (1);
-      }
+    index_name = Strdup(Catenate(pwd,PATHSEP,root,".idx"),"Allocating index file name");
+    index = Fopen(index_name,"w");
+    if (index_name == NULL || index == NULL)
+      exit (1);
 
-    fwrite(&db,sizeof(HITS_DB),1,index);
-    fwrite(db.reads,sizeof(HITS_READ),db.nreads,index);
+    FWRITE(&db,sizeof(DAZZ_DB),1,index)
+    FWRITE(db.reads,sizeof(DAZZ_READ),db.nreads,index)
 
-    fclose(index);
+    FCLOSE(index);
   }
 
   Close_DB(&db);

@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "DB.h"
 
@@ -21,13 +22,16 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-vf] <path:db|dam> <track:name>";
+static char *Usage = "[-vfd] <path:db|dam> <track:name>";
 
 int main(int argc, char *argv[])
 { char *prefix;
   FILE *aout, *dout;
+  int   nblocks;
+  int   nfiles;
   int   VERBOSE;
   int   FORCE;
+  int   DELETE;
 
   //  Process arguments
 
@@ -39,22 +43,29 @@ int main(int argc, char *argv[])
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
-        { ARG_FLAGS("vf") }
+        { ARG_FLAGS("vfd") }
       else
         argv[j++] = argv[i];
     argc = j;
 
     VERBOSE = flags['v'];
     FORCE   = flags['f'];
+    DELETE  = flags['d'];
 
     if (argc != 3)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"   -v: verbose\n");
+        fprintf(stderr,"   -d: delete individual blocks after a successful concatenation\n");
+        fprintf(stderr,"   -f: force overwrite of track if already present\n");
         exit (1);
       }
   }
 
   { char *pwd, *root;
-    int   plen;
+    int   i, plen, index, isdam;
+    FILE *dstub;
+    char *dstub_name;
 
     plen = strlen(argv[1]);
     if (strcmp(argv[1]+(plen-3),".dam") == 0)
@@ -63,20 +74,45 @@ int main(int argc, char *argv[])
       root = Root(argv[1],".db");
     pwd = PathTo(argv[1]);
     prefix = Strdup(Catenate(pwd,PATHSEP,root,"."),"Allocating track name");
+
+    dstub = fopen(Catenate(pwd,"/",root,".db"),"r");
+    isdam = 0;
+    if (dstub == NULL)
+      { dstub = fopen(Catenate(pwd,"/",root,".dam"),"r");
+        isdam = 1;
+        if (dstub == NULL)
+          { fprintf(stderr,"%s: Cannot find %s either as a .db or a .dam\n",Prog_Name,root);
+            exit (1);
+          }
+      }
+    dstub_name = Strdup(Catenate(pwd,"/",root,isdam?".dam":".db"),"Allocating db file name");
+    if (dstub_name == NULL)
+      exit (1);
+    
+    FSCANF(dstub,DB_NFILE,&nblocks)
+    
+    for (i = 0; i < nblocks; i++)
+      { char prolog[MAX_NAME], fname[MAX_NAME];
+        
+        FSCANF(dstub,DB_FDATA,&index,fname,prolog)
+      }
+    
+    FSCANF(dstub,DB_NBLOCK,&nblocks)
+
+    fclose(dstub);
+    free(dstub_name);
     free(pwd);
     free(root);
 
     aout = fopen(Catenate(prefix,argv[2],".","anno"),"r");
     if (aout != NULL && !FORCE)
       { fprintf(stderr,"%s: Track file %s%s.anno already exists!\n",Prog_Name,prefix,argv[2]);
-        fclose(aout);
         exit (1);
       }
 
     dout = fopen(Catenate(prefix,argv[2],".","data"),"r");
     if (dout != NULL && !FORCE)
       { fprintf(stderr,"%s: Track file %s%s.data already exists!\n",Prog_Name,prefix,argv[2]);
-        fclose(dout);
         exit (1);
       }
 
@@ -88,26 +124,44 @@ int main(int argc, char *argv[])
  
   { int   tracktot, tracksiz;
     int64 trackoff;
-    int   nfiles;
     char  data[1024];
     void *anno;
     FILE *lfile = NULL;
+    DAZZ_EXTRA *extra;
+    int         nextra;
+    int64       extail;
 
     anno     = NULL;
     trackoff = 0;
     tracktot = tracksiz = 0;
-    fwrite(&tracktot,sizeof(int),1,aout);
-    fwrite(&tracksiz,sizeof(int),1,aout);
+    if (fwrite(&tracktot,sizeof(int),1,aout) != 1)
+      SYSTEM_WRITE_ERROR
+    if (fwrite(&tracksiz,sizeof(int),1,aout) != 1)
+      SYSTEM_WRITE_ERROR
 
+    nextra = 0;
     nfiles = 0;
     while (1)
       { FILE *dfile, *afile;
+        char *dfile_name, *afile_name;
         int   i, size, tracklen;
 
-        afile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","anno")),"r");
+        afile_name = Strdup(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","anno")),
+                            "Allocating .anno file name");
+        dfile_name = Strdup(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),
+                            "Allocating .data file name");
+        if (afile_name == NULL || dfile_name == NULL)
+          goto error;
+          
+
+        afile = fopen(afile_name,"r");
         if (afile == NULL)
           break;
         dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","data")),"r");
+        if (dfile == NULL && errno != ENOENT)
+          { fprintf(stderr,"%s: The file %s is corrupted\n",Prog_Name,dfile_name);
+            goto error;
+          }
 
         if (nfiles > 0)
           fclose(lfile);
@@ -118,26 +172,19 @@ int main(int argc, char *argv[])
             fflush(stderr);
           }
   
-        if (fread(&tracklen,sizeof(int),1,afile) != 1)
-          SYSTEM_ERROR
-        if (fread(&size,sizeof(int),1,afile) != 1)
-          SYSTEM_ERROR
+        FREAD(&tracklen,sizeof(int),1,afile)
+        FREAD(&size,sizeof(int),1,afile)
         if (nfiles == 0)
           { tracksiz = size;
             if (dfile != NULL)
               { dout = Fopen(Catenate(prefix,argv[2],".","data"),"w");
                 if (dout == NULL)
-                  { fclose(afile);
-                    fclose(dfile);
-                    goto error;
-                  }
+                  goto error;
               }
             else
               { anno = Malloc(size,"Allocating annotation record");
                 if (anno == NULL)
-                  { fclose(afile);
-                    goto error;
-                  }
+                  goto error;
               }
           }
         else
@@ -156,11 +203,7 @@ int main(int argc, char *argv[])
             else
                escape = 0;
             if (escape)
-              { fclose(afile);
-                if (dfile != NULL) fclose(dfile);
-                if (anno != NULL) free(anno);
-                goto error;
-              }
+              goto error;
           }
   
         if (dfile != NULL)
@@ -170,53 +213,89 @@ int main(int argc, char *argv[])
               { int anno4;
   
                 for (i = 0; i < tracklen; i++)
-                  { if (fread(&anno4,sizeof(int),1,afile) != 1)
-                      SYSTEM_ERROR
+                  { FREAD(&anno4,sizeof(int),1,afile)
                     anno4 += trackoff;
-                    fwrite(&anno4,sizeof(int),1,aout);
+                    FWRITE(&anno4,sizeof(int),1,aout)
                   }
-                if (fread(&anno4,sizeof(int),1,afile) != 1)
-                  SYSTEM_ERROR
+                FREAD(&anno4,sizeof(int),1,afile)
                 dlen = anno4;
               }
             else
               { int64 anno8;
   
                 for (i = 0; i < tracklen; i++)
-                  { if (fread(&anno8,sizeof(int64),1,afile) != 1)
-                      SYSTEM_ERROR
+                  { FREAD(&anno8,sizeof(int64),1,afile)
                     anno8 += trackoff;
-                    fwrite(&anno8,sizeof(int64),1,aout);
+                    FWRITE(&anno8,sizeof(int64),1,aout)
                   }
-                if (fread(&anno8,sizeof(int64),1,afile) != 1)
-                  SYSTEM_ERROR
+                FREAD(&anno8,sizeof(int64),1,afile)
                 dlen = anno8;
               }
             trackoff += dlen;
 
             for (i = 1024; i < dlen; i += 1024)
-              { if (fread(data,1024,1,dfile) != 1)
-                  SYSTEM_ERROR
-                fwrite(data,1024,1,dout);
+              { FREAD(data,1024,1,dfile)
+                FWRITE(data,1024,1,dout)
               }
             i -= 1024;
             if (i < dlen)
-              { if (fread(data,dlen-i,1,dfile) != 1)
-                  SYSTEM_ERROR
-                fwrite(data,dlen-i,1,dout);
+              { FREAD(data,dlen-i,1,dfile)
+                FWRITE(data,dlen-i,1,dout)
               }
           }
         else
           { for (i = 0; i < tracklen; i++)
-              { if (fread(anno,size,1,afile) != 1)
-                  SYSTEM_ERROR
-                fwrite(anno,size,1,aout);
+              { FREAD(anno,size,1,afile)
+                FWRITE(anno,size,1,aout)
+              }
+          }
+
+        FSEEKO(afile,0,SEEK_END)
+        if (dfile != NULL)
+          extail = FTELLO(afile) - (size*(tracklen+1) + 2*sizeof(int)); 
+        else
+          extail = FTELLO(afile) - (size*tracklen + 2*sizeof(int)); 
+        FSEEKO(afile,-extail,SEEK_END)
+
+        if (extail >= 20)
+          { if (nfiles == 0)
+              { nextra = 0;
+                while (1)
+                  if (Read_Extra(afile,afile_name,NULL))
+                    break;
+                  else
+                    nextra += 1;
+
+                extra = (DAZZ_EXTRA *) Malloc(sizeof(DAZZ_EXTRA)*(nextra+1),"Allocating extras");
+                if (extra == NULL)
+                  goto error;
+                FSEEKO(afile,-extail,SEEK_END)
+
+                for (i = 0; i < nextra; i++)
+                  { extra[i].nelem = 0;
+                    Read_Extra(afile,afile_name,extra+i);
+                  }
+              }
+
+            else
+              { for (i = 0; i < nextra; i++)
+                  if (Read_Extra(afile,afile_name,extra+i))
+                    { fprintf(stderr,"%s: File %s has fewer extras than previous .anno files\n",
+                                     Prog_Name,afile_name);
+                      goto error;
+                    }
+                if (Read_Extra(afile,afile_name,extra+nextra) == 0)
+                  { fprintf(stderr,"%s: File %s has more extras than previous .anno files\n",
+                                   Prog_Name,afile_name);
+                    goto error;
+                  }
               }
           }
   
         tracktot += tracklen;
         nfiles   += 1;
-        if (dfile != NULL) fclose(dfile);
+        if (dfile != NULL)
+          fclose(dfile);
       }
   
     if (nfiles == 0)
@@ -230,38 +309,75 @@ int main(int argc, char *argv[])
         if (dout != NULL)
           { if (tracksiz == 4)
               { int anno4 = trackoff;
-                fwrite(&anno4,sizeof(int),1,aout);
+                FWRITE(&anno4,sizeof(int),1,aout)
               }
             else
               { int64 anno8 = trackoff;
-                fwrite(&anno8,sizeof(int64),1,aout);
+                FWRITE(&anno8,sizeof(int64),1,aout)
               }
           }
-        while (fread(&byte,1,1,lfile) == 1)
-          fwrite(&byte,1,1,aout);
+
+        if (nextra == 0)
+          { while (fread(&byte,1,1,lfile) == 1)
+              FWRITE(&byte,1,1,aout)
+          }
+        else
+          { int i;
+            for (i = 0; i < nextra; i++)
+              Write_Extra(aout,extra+i);
+          }
         fclose(lfile);
 
-        rewind(aout);
-        fwrite(&tracktot,sizeof(int),1,aout);
-        fwrite(&tracksiz,sizeof(int),1,aout);
+        FSEEKO(aout,0,SEEK_SET)
+        FWRITE(&tracktot,sizeof(int),1,aout)
+        FWRITE(&tracksiz,sizeof(int),1,aout)
       }
   }
   
-  fclose(aout);
+  FCLOSE(aout);
   if (dout != NULL)
-    fclose(dout);
+    FCLOSE(dout);
   free(prefix);
+
+  if (nfiles != nblocks)
+    { fprintf(stderr,"%s: Did not catenate all tracks of DB (nfiles %d != nblocks %d)\n",
+	             Prog_Name, nfiles, nblocks);
+      goto error;
+    }
+
+  if (DELETE)
+    { int   i;
+      char *name;
+
+      for (i = 1; i <= nblocks ;i++)
+        { name = Numbered_Suffix(prefix,i,Catenate(".",argv[2],".","anno"));
+          if (unlink(name) != 0)
+            fprintf(stderr,"%s: [WARNING] Couldn't delete file %s\n",Prog_Name,name);
+          if (dout != NULL)
+            { name = Numbered_Suffix(prefix,i,Catenate(".",argv[2],".","data"));
+              if (unlink(name) != 0)
+                fprintf(stderr,"%s: [WARNING] Couldn't delete file %s\n",Prog_Name,name);
+            }
+        }
+    }
 
   exit (0);
 
 error:
-  fclose(aout);
-  unlink(Catenate(prefix,argv[2],".","anno"));
-  if (dout != NULL)
-    { fclose(dout);
-      unlink(Catenate(prefix,argv[2],".","data"));
-    }
-  free(prefix);
+  { char *name;
+
+    fclose(aout);
+    name = Catenate(prefix,argv[2],".","anno");
+    if (unlink(name) != 0)
+      fprintf(stderr,"%s: [WARNING] Couldn't delete file %s during abort\n",Prog_Name,name);
+    if (dout != NULL)
+      { fclose(dout);
+        name = Catenate(prefix,argv[2],".","data");
+        if (unlink(name) != 0)
+          fprintf(stderr,"%s: [WARNING] Couldn't delete file %s during abort\n",Prog_Name,name);
+      }
+    free(prefix);
+  }
 
   exit (1);
 }

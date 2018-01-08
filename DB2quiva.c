@@ -23,8 +23,9 @@
 static char *Usage = "[-vU] <path:db>";
 
 int main(int argc, char *argv[])
-{ HITS_DB    _db, *db = &_db;
+{ DAZZ_DB    _db, *db = &_db;
   FILE       *dbfile, *quiva;
+  char       *dbfile_name;
   int         VERBOSE, UPPER;
 
   //  Process arguments
@@ -72,27 +73,27 @@ int main(int argc, char *argv[])
         exit (1);
       }
 
-    pwd    = PathTo(argv[1]);
-    root   = Root(argv[1],".db");
-    dbfile = Fopen(Catenate(pwd,"/",root,".db"),"r");
-    quiva  = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"r");
+    pwd         = PathTo(argv[1]);
+    root        = Root(argv[1],".db");
+    dbfile_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocating db file name");
+    dbfile      = Fopen(dbfile_name,"r");
+    quiva       = Fopen(Catenate(pwd,PATHSEP,root,".qvs"),"r");
     free(pwd);
     free(root);
-    if (dbfile == NULL || quiva == NULL)
+    if (dbfile_name == NULL || dbfile == NULL || quiva == NULL)
       exit (1);
   }
 
   //  For each cell do:
 
-  { HITS_READ  *reads;
+  { DAZZ_READ  *reads;
     char        lname[MAX_NAME];
     FILE       *ofile = NULL;
     int         f, first, last, ofirst, nfiles;
     QVcoding   *coding;
     char      **entry;
 
-    if (fscanf(dbfile,DB_NFILE,&nfiles) != 1)
-      SYSTEM_ERROR
+    FSCANF(dbfile,DB_NFILE,&nfiles)
 
     reads = db->reads;
     entry = New_QV_Buffer(db);
@@ -105,8 +106,7 @@ int main(int argc, char *argv[])
 
         if (reads[first].coff < 0) break;
 
-        if (fscanf(dbfile,DB_FDATA,&last,fname,prolog) != 3)
-          SYSTEM_ERROR
+        FSCANF(dbfile,DB_FDATA,&last,fname,prolog)
 
         if (f == 0 || strcmp(fname,lname) != 0)
           { if (f > 0)
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
                     fflush(stderr);
                   }
                 else
-                  fclose(ofile);
+                  FCLOSE(ofile)
               }
 
             if (strcmp(fname,"stdout") == 0)
@@ -147,16 +147,16 @@ int main(int argc, char *argv[])
 
         for (i = first; i < last; i++)
           { int        e, flags, qv, rlen;
-            HITS_READ *r;
+            DAZZ_READ *r;
 
             r     = reads + i;
             flags = r->flags;
             rlen  = r->rlen;
             qv    = (flags & DB_QV);
-            fprintf(ofile,"@%s/%d/%d_%d",prolog,r->origin,r->fpulse,r->fpulse+rlen);
+            FPRINTF(ofile,"@%s/%d/%d_%d",prolog,r->origin,r->fpulse,r->fpulse+rlen)
             if (qv > 0)
-              fprintf(ofile," RQ=0.%3d",qv);
-            fprintf(ofile,"\n");
+              FPRINTF(ofile," RQ=0.%3d",qv)
+            FPRINTF(ofile,"\n")
 
             Uncompress_Next_QVentry(quiva,entry,coding,rlen);
 
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
               }
 
             for (e = 0; e < 5; e++)
-              fprintf(ofile,"%.*s\n",rlen,entry[e]);
+              FPRINTF(ofile,"%.*s\n",rlen,entry[e])
           }
 
         first = last;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
             fflush(stderr);
           }
         else
-          fclose(ofile);
+          FCLOSE(ofile)
       }
   }
 
