@@ -337,7 +337,6 @@ int main(int argc, char *argv[])
   FCLOSE(aout);
   if (dout != NULL)
     FCLOSE(dout);
-  free(prefix);
 
   if (nfiles != nblocks)
     { fprintf(stderr,"%s: Did not catenate all tracks of DB (nfiles %d != nblocks %d)\n",
@@ -361,6 +360,7 @@ int main(int argc, char *argv[])
         }
     }
 
+  free(prefix);
   exit (0);
 
 error:
