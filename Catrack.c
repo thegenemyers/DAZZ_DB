@@ -174,6 +174,9 @@ int main(int argc, char *argv[])
   
         FREAD(&tracklen,sizeof(int),1,afile)
         FREAD(&size,sizeof(int),1,afile)
+        if (size == 0)
+          size = 8;
+
         if (nfiles == 0)
           { tracksiz = size;
             if (dfile != NULL)
