@@ -64,6 +64,10 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -x: Trimmed DB has reads >= this threshold.\n");
+        fprintf(stderr,"      -a: Trimmed DB contains all reads from a well (not just longest).\n");
+        fprintf(stderr,"      -f: Force the new trim setting even if already set.\n");
         exit (1);
       }
   }

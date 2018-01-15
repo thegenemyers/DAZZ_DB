@@ -32,7 +32,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-af] [-x<int>] [-s<float(200.)>] <path:db|dam>";
+static char *Usage = "[-af] [-x<int>] [-s<double(200.)>] <path:db|dam>";
 
 int main(int argc, char *argv[])
 { DAZZ_DB    db, dbs;
@@ -84,6 +84,11 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -s: Target size of blocks (in Mbp).\n");
+        fprintf(stderr,"      -x: Trimmed DB has reads >= this threshold.\n");
+        fprintf(stderr,"      -a: Trimmed DB contains all reads from a well (not just longest).\n");
+        fprintf(stderr,"      -f: Force the split to occur even if already split.\n");
         exit (1);
       }
   }

@@ -259,7 +259,7 @@ should be used, and the characters per line, or line width, can be set to any po
 value with the -w option.
 
 ```
-9. DBsplit [-af] [-x<int>] [-s<int(200)>] <path:db|dam>
+9. DBsplit [-af] [-x<int>] [-s<double(200.)>] <path:db|dam>
 ```
 
 Divide the database \<path\>.db or \<path\>.dam conceptually into a series of blocks

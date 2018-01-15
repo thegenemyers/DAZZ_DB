@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     while (1)
       { FILE *dfile, *afile;
         char *dfile_name, *afile_name;
-        int   i, size, tracklen;
+        int   i, size, esize, tracklen;
 
         afile_name = Strdup(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","anno")),
                             "Allocating .anno file name");
@@ -175,7 +175,9 @@ int main(int argc, char *argv[])
         FREAD(&tracklen,sizeof(int),1,afile)
         FREAD(&size,sizeof(int),1,afile)
         if (size == 0)
-          size = 8;
+          esize = 8;
+        else
+          esize = size;
 
         if (nfiles == 0)
           { tracksiz = size;
@@ -185,7 +187,7 @@ int main(int argc, char *argv[])
                   goto error;
               }
             else
-              { anno = Malloc(size,"Allocating annotation record");
+              { anno = Malloc(esize,"Allocating annotation record");
                 if (anno == NULL)
                   goto error;
               }
@@ -212,7 +214,7 @@ int main(int argc, char *argv[])
         if (dfile != NULL)
           { int64 dlen;
 
-            if (size == 4)
+            if (esize == 4)
               { int anno4;
   
                 for (i = 0; i < tracklen; i++)
@@ -248,16 +250,16 @@ int main(int argc, char *argv[])
           }
         else
           { for (i = 0; i < tracklen; i++)
-              { FREAD(anno,size,1,afile)
-                FWRITE(anno,size,1,aout)
+              { FREAD(anno,esize,1,afile)
+                FWRITE(anno,esize,1,aout)
               }
           }
 
         FSEEKO(afile,0,SEEK_END)
         if (dfile != NULL)
-          extail = FTELLO(afile) - (size*(tracklen+1) + 2*sizeof(int)); 
+          extail = FTELLO(afile) - (esize*(tracklen+1) + 2*sizeof(int)); 
         else
-          extail = FTELLO(afile) - (size*tracklen + 2*sizeof(int)); 
+          extail = FTELLO(afile) - (esize*tracklen + 2*sizeof(int)); 
         FSEEKO(afile,-extail,SEEK_END)
 
         if (extail >= 20)

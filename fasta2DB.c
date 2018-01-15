@@ -188,6 +188,10 @@ int main(int argc, char *argv[])
     if ( (IFILE == NULL && PIPE == NULL && argc <= 2) || 
         ((IFILE != NULL || PIPE != NULL) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -f: import files listed 1/line in given file.\n");
+        fprintf(stderr,"      -i: import data from stdin, use optiona name as data source.\n");
+        fprintf(stderr,"        : otherwise, import sequence of specified files.\n");
         exit (1);
       }
   }

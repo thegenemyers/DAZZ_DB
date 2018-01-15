@@ -31,7 +31,7 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )";
+static char *Usage = "[-v] <path:db> ( -f<file> | -i | <input:quiva> ... )";
 
 typedef struct
   { int    argc;
@@ -106,7 +106,6 @@ int main(int argc, char *argv[])
   char      *tname;
 
   int        VERBOSE;
-  int        LOSSY;
   int        PIPE;
   FILE      *INFILE;
 
@@ -139,7 +138,6 @@ int main(int argc, char *argv[])
     argc = j;
 
     VERBOSE = flags['v'];
-    LOSSY   = flags['l'];
     PIPE    = flags['i'];
 
     if (INFILE != NULL && PIPE)
@@ -150,6 +148,10 @@ int main(int argc, char *argv[])
     if ( (INFILE == NULL && ! PIPE && argc <= 2) || 
         ((INFILE != NULL || PIPE) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -f: import files listed 1/line in given file.\n");
+        fprintf(stderr,"      -i: import data from stdin.\n");
+        fprintf(stderr,"        : otherwise, import sequence of specified files.\n");
         exit (1);
       }
   }
@@ -406,7 +408,7 @@ int main(int argc, char *argv[])
               goto error;
             }
 
-          coding = Create_QVcoding(LOSSY);
+          coding = Create_QVcoding(0);
           if (coding == NULL)
             { fprintf(stderr,"%s",Ebuffer);
               goto error;
@@ -432,7 +434,7 @@ int main(int argc, char *argv[])
                   goto error;
                 }
               reads[i].coff = qpos;
-              s = Compress_Next_QVentry(temp,quiva,coding,LOSSY);
+              s = Compress_Next_QVentry(temp,quiva,coding,0);
               if (s < 0)
                 { fprintf(stderr,"%s",Ebuffer);
                   goto error;

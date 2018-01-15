@@ -145,6 +145,9 @@ int main(int argc, char *argv[])
     if ( (INFILE == NULL && ! PIPE && argc <= 2) || 
         ((INFILE != NULL || PIPE) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"      -f: import files listed 1/line in given file.\n");
+        fprintf(stderr,"      -i: import data from stdin.\n");
+        fprintf(stderr,"        : otherwise, import sequence of specified files.\n");
         exit (1);
       }
   }

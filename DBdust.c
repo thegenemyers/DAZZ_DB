@@ -95,6 +95,11 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -w: DUST algorithm window size.\n");
+        fprintf(stderr,"      -t: DUST algorithm threshold.\n");
+        fprintf(stderr,"      -m: Record only low-complexity intervals >= this size.\n");
+        fprintf(stderr,"      -b: Take into account base composition bias.\n");
         exit (1);
       }
   }

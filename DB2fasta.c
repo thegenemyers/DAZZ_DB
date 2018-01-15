@@ -51,6 +51,9 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -U: Use upper case for DNA (default is lower case).\n");
+        fprintf(stderr,"      -w: Print -w bp per line (default is 80).\n");
         exit (1);
       }
   }
