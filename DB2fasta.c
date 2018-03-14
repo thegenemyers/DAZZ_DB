@@ -13,13 +13,13 @@
 
 #include "DB.h"
 
-static char *Usage = "[-vU] [-w<int(80)>] <path:db>";
+static char *Usage = "[-ovU] [-w<int(80)>] <path:db>";
 
 int main(int argc, char *argv[])
 { DAZZ_DB    _db, *db = &_db;
   FILE       *dbfile;
   char       *dbfile_name;
-  int         VERBOSE, UPPER, WIDTH;
+  int         VERBOSE, UPPER, WIDTH, STDOUT;
 
   //  Process arguments
 
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("vU")
+            ARG_FLAGS("vUo")
             break;
           case 'w':
             ARG_NON_NEGATIVE(WIDTH,"Line width")
@@ -46,12 +46,14 @@ int main(int argc, char *argv[])
         argv[j++] = argv[i];
     argc = j;
 
+    STDOUT  = flags['o'];
     UPPER   = 1 + flags['U'];
     VERBOSE = flags['v'];
 
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         fprintf(stderr,"\n");
+        fprintf(stderr,"      -o: output to stdout (default is to write to imported filenames)\n");
         fprintf(stderr,"      -U: Use upper case for DNA (default is lower case).\n");
         fprintf(stderr,"      -w: Print -w bp per line (default is 80).\n");
         exit (1);
@@ -116,7 +118,7 @@ int main(int argc, char *argv[])
                   FCLOSE(ofile)
               }
 
-            if (strcmp(fname,"stdout") == 0)
+            if (STDOUT || strcmp(fname,"stdout") == 0)
               { ofile  = stdout;
                 ofirst = first;
 
