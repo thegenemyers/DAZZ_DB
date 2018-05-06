@@ -175,8 +175,8 @@ int main(int argc, char *argv[])
         fprintf(stderr,"      -n: Do not show the default read DNA sequences.\n");
         fprintf(stderr,"      -m: Show mask intervals and highlight in sequence.\n");
         fprintf(stderr,"\n");
-        fprintf(stderr,"      -Q: Produce a .quiva file (ignore all other options but -uU.\n");
-        fprintf(stderr,"      -A: Produce a .arrow file (ignore all other options but -uw.\n");
+        fprintf(stderr,"      -Q: Produce a .quiva file (ignore all other options but -uU).\n");
+        fprintf(stderr,"      -A: Produce a .arrow file (ignore all other options but -uw).\n");
         fprintf(stderr,"\n");
         fprintf(stderr,"      -U: Use upper case for DNA (default is lower case).\n");
         fprintf(stderr,"      -w: Print -w bp per line (default is 80).\n");
@@ -352,11 +352,11 @@ int main(int argc, char *argv[])
           int   b, e;
 
           b = strtol(argv[2],&eptr,10);
-          if (eptr > argv[2] && b > 0)
+          if (eptr > argv[2])
             { if (*eptr == '-')
                 { if (eptr[1] != LAST_READ_SYMBOL || eptr[2] != '\0')
                     { e = strtol(eptr+1,&fptr,10);
-                      input_pts = (fptr <= eptr+1 || *fptr != '\0' || e <= 0);
+                      input_pts = (fptr <= eptr+1 || *fptr != '\0');
                     }
                 }
               else

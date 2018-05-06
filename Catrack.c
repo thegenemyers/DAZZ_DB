@@ -131,6 +131,7 @@ int main(int argc, char *argv[])
     int         nextra;
     int64       extail;
 
+    extra    = NULL;
     anno     = NULL;
     trackoff = 0;
     tracktot = tracksiz = 0;
@@ -338,16 +339,16 @@ int main(int argc, char *argv[])
         FWRITE(&tracksiz,sizeof(int),1,aout)
       }
   }
-  
-  FCLOSE(aout);
-  if (dout != NULL)
-    FCLOSE(dout);
 
   if (nfiles != nblocks)
     { fprintf(stderr,"%s: Did not catenate all tracks of DB (nfiles %d != nblocks %d)\n",
 	             Prog_Name, nfiles, nblocks);
       goto error;
     }
+  
+  FCLOSE(aout);
+  if (dout != NULL)
+    FCLOSE(dout);
 
   if (DELETE)
     { int   i;
