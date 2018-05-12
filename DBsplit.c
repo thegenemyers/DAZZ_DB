@@ -208,6 +208,8 @@ int main(int argc, char *argv[])
     dbs.cutoff = CUTOFF;
     if (ALL)
       dbs.allarr |= DB_ALL;
+    else
+      dbs.allarr &= ~DB_ALL;
     dbs.treads = treads;
     FSEEKO(ixfile,0,SEEK_SET)
     FWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
