@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     int        nreads = db.ureads;
     int64      totlen;
     int        nblock, ireads, treads, rlen, fno;
-    int        i;
+    int        i, css;
 
     nblock = 0;
     totlen = 0;
@@ -166,16 +166,19 @@ int main(int argc, char *argv[])
     if (ALL)
       for (i = 0; i < nreads; i++)
         { rlen = reads[i].rlen;
+          if ((reads[i].flags & DB_CSS) == 0)
+            css = 0;
           if (rlen >= CUTOFF)
-            { ireads += 1;
-              treads += 1;
-              totlen += rlen;
-              if (totlen >= SIZE)
+            { if (css == 0 && totlen >= SIZE)
                 { FPRINTF(dbfile,DB_BDATA,i+1,treads)
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
                 }
+              ireads += 1;
+              treads += 1;
+              totlen += rlen;
+              css = 1;
             }
         }
     else
