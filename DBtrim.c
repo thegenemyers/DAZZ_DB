@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
     FSCANF(dbfile,DB_NBLOCK,&nblocks)
 
-    dbpos = FTELLO(dbfile);
+    FTELLO(dbpos,dbfile)
     FSCANF(dbfile,DB_PARAMS,&size,&cutoff,&all)
     FSEEKO(dbfile,dbpos,SEEK_SET)
     FPRINTF(dbfile,DB_PARAMS,size,CUTOFF,ALL)
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
     t = 0;
     fprintf(dbfile,DB_BDATA,0,0);
     for (b = 0; b < nblocks; b++)
-      { dbpos = FTELLO(dbfile);
+      { FTELLO(dbpos,dbfile);
         FSCANF(dbfile,DB_BDATA,&uread,&tread)
 
         if (ALL)

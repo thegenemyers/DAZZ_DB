@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
           }
       }
 
-    dbpos = FTELLO(dbfile);
+    FTELLO(dbpos,dbfile)
     FSEEKO(dbfile,dbpos,SEEK_SET)
     FPRINTF(dbfile,DB_NBLOCK,0)
     FPRINTF(dbfile,DB_PARAMS,SIZE,CUTOFF,ALL)
@@ -156,8 +156,9 @@ int main(int argc, char *argv[])
     int        nreads = db.ureads;
     int64      totlen;
     int        nblock, ireads, treads, rlen, fno;
-    int        i, css;
+    int        i, upos, css;
 
+    css    = 0;
     nblock = 0;
     totlen = 0;
     ireads = 0;
@@ -170,7 +171,7 @@ int main(int argc, char *argv[])
             css = 0;
           if (rlen >= CUTOFF)
             { if (css == 0 && totlen >= SIZE)
-                { FPRINTF(dbfile,DB_BDATA,i+1,treads)
+                { FPRINTF(dbfile,DB_BDATA,i,treads)
                   totlen = 0;
                   ireads = 0;
                   nblock += 1;
@@ -202,7 +203,8 @@ int main(int argc, char *argv[])
         nblock += 1;
       }
     fno = fileno(dbfile);
-    if (ftruncate(fno,FTELLO(dbfile)) < 0)
+    FTELLO(upos,dbfile)
+    if (ftruncate(fno,upos) < 0)
       SYSTEM_WRITE_ERROR
 
     FSEEKO(dbfile,dbpos,SEEK_SET)

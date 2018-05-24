@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
         FWRITE(&size,sizeof(int),1,afile)
         FSEEKO(afile,0,SEEK_END)
         FSEEKO(dfile,0,SEEK_END)
-        indx = FTELLO(dfile);
+        FTELLO(indx,dfile)
       }
 
     free(pwd);

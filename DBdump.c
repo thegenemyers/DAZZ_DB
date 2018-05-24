@@ -94,6 +94,7 @@ static int prof_map[41] =
 int main(int argc, char *argv[])
 { DAZZ_DB    _db, *db = &_db;
   int         Quiva_DB, Arrow_DB;
+  int         FirstRead;
   FILE       *hdrs      = NULL;
   char       *hdrs_name = NULL;
   int64      *qv_idx    = NULL;
@@ -377,7 +378,10 @@ int main(int argc, char *argv[])
           else if (status == 1)
             MTRACK[i] = Load_Track(db,MASK[i]);
         }
+      FirstRead = db->tfirst;
     }
+  else
+    FirstRead = db->ufirst;
 
   if (DOIQV)
     { int         status, kind;
@@ -713,7 +717,7 @@ int main(int argc, char *argv[])
             r   = reads + i;
             len = r->rlen;
             if (DORED)
-              printf("R %d\n",i+1);
+              printf("R %d\n",FirstRead + (i+1));
 
             flags = r->flags;
             qv    = (flags & DB_QV);

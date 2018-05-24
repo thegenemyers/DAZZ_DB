@@ -349,13 +349,12 @@ int main(int argc, char *argv[])
   if (argc == 3)
     { if (argv[2][0] != LAST_READ_SYMBOL || argv[2][1] != '\0')
         { char *eptr, *fptr;
-          int   b, e;
 
-          b = strtol(argv[2],&eptr,10);
+          strtol(argv[2],&eptr,10);
           if (eptr > argv[2])
             { if (*eptr == '-')
                 { if (eptr[1] != LAST_READ_SYMBOL || eptr[2] != '\0')
-                    { e = strtol(eptr+1,&fptr,10);
+                    { strtol(eptr+1,&fptr,10);
                       input_pts = (fptr <= eptr+1 || *fptr != '\0');
                     }
                 }

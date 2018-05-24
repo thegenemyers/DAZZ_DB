@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
     while (1)
       { FILE *dfile, *afile;
         char *dfile_name, *afile_name;
-        int   i, size, esize, tracklen;
+        int   i, apos, size, esize, tracklen;
 
         afile_name = Strdup(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[2],".","anno")),
                             "Allocating .anno file name");
@@ -257,10 +257,11 @@ int main(int argc, char *argv[])
           }
 
         FSEEKO(afile,0,SEEK_END)
+        FTELLO(apos,afile)
         if (dfile != NULL)
-          extail = FTELLO(afile) - (esize*(tracklen+1) + 2*sizeof(int)); 
+          extail = apos - (esize*(tracklen+1) + 2*sizeof(int)); 
         else
-          extail = FTELLO(afile) - (esize*tracklen + 2*sizeof(int)); 
+          extail = apos - (esize*tracklen + 2*sizeof(int)); 
         FSEEKO(afile,-extail,SEEK_END)
 
         if (extail >= 20)
