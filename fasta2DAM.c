@@ -407,10 +407,16 @@ int main(int argc, char *argv[])
         nline = 1;
         eof   = (fgets(read,MAX_NAME,input) == NULL);
         if (eof || strlen(read) < 1)
-          { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+          { free(core);
             fclose(input);
-            free(core);
-            continue;
+            if (PIPE != NULL)
+              { fprintf(stderr,"Standard input is empty, terminating!\n");
+                break;
+              }
+            else
+              { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+                continue;
+              }
           }
 
         //   Add the file name to flist
@@ -422,7 +428,7 @@ int main(int argc, char *argv[])
               fprintf(stderr,"Adding '%s.fasta' ...\n",core);
             fflush(stderr);
           }
-    
+
         if (!append)
           flist[ofiles++] = core;
 
