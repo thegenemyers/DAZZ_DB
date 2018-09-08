@@ -390,16 +390,14 @@ int main(int argc, char *argv[])
 
         eof = (fgets(read,MAX_NAME,input) == NULL);
         if (eof || strlen(read) < 1)
-          { free(core);
-            fclose(input);
+          { fclose(input);
             if (PIPE != NULL)
               { fprintf(stderr,"Standard input is empty, terminating!\n");
                 break;
               }
-            else
-              { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
-                continue;
-              }
+            fprintf(stderr,"Skipping '%s', file is empty!\n",core);
+            free(core);
+            continue;
           }
 
         //  Check that core is not too long and name is unique or last source if PIPE'd

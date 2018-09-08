@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #include "DB.h"
 
@@ -2020,6 +2021,27 @@ typedef struct
   //  Advance the iterator e_parse to the next file, open it, and return the file pointer
   //   to it.  Return NULL if at the end of the list of files.
 
+int Next_Block_Exists(Block_Looper *e_parse)
+{ _Block_Looper *parse = (_Block_Looper *) e_parse;
+
+  char       *disp;
+  struct stat sts;
+
+  if (parse->next+1 > parse->last)
+    return (0);
+
+  if (parse->next < 0)
+    disp  = parse->root;
+  else
+    disp = Numbered_Suffix(parse->root,parse->next+1,parse->ppnt);
+
+  if (stat(Catenate(parse->pwd,"/",disp,".las"),&sts))
+    return (0);
+  else
+    return (1);
+}
+
+
 FILE *Next_Block_Arg(Block_Looper *e_parse)
 { _Block_Looper *parse = (_Block_Looper *) e_parse;
 
@@ -2038,7 +2060,7 @@ FILE *Next_Block_Arg(Block_Looper *e_parse)
   if ((input = fopen(Catenate(parse->pwd,"/",disp,".las"),"r")) == NULL)
     { if (parse->last != INT_MAX)
         { fprintf(stderr,"%s: %s.las is not present\n",Prog_Name,disp);
-           exit (1);
+          exit (1);
         }
       return (NULL);
     }

@@ -407,8 +407,12 @@ int main(int argc, char *argv[])
         nline = 1;
         eof   = (fgets(read,MAX_NAME,input) == NULL);
         if (eof || strlen(read) < 1)
-          { fprintf(stderr,"Skipping '%s', file is empty!\n",core);
-            fclose(input);
+          { fclose(input);
+            if (PIPE != NULL)
+              { fprintf(stderr,"Standard input is empty, terminating!\n");
+                break;
+              }
+            fprintf(stderr,"Skipping '%s', file is empty!\n",core);
             free(core);
             continue;
           }

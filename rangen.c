@@ -148,6 +148,11 @@ int main(int argc, char *argv[])
 
   if (argc != 2)
     { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
+      fprintf(stderr,"\n");
+      fprintf(stderr,"      -r: Random number generator seed (default is process id).\n");
+      fprintf(stderr,"      -b: AT vs GC ratio or bias.\n");
+      fprintf(stderr,"      -w: Print -w bp per line (default is 80).\n");
+      fprintf(stderr,"      -U: Output sequence in upper case (default is lower case).\n");
       exit (1);
     }
 

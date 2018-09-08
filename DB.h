@@ -580,6 +580,7 @@ typedef void Block_Looper;
 Block_Looper *Parse_Block_Arg(char *arg);
 
 FILE *Next_Block_Arg(Block_Looper *e_parse);
+int   Next_Block_Exists(Block_Looper *e_parse);
 
 char *Next_Block_Slice(Block_Looper *e_parse,int slice);
 

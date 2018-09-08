@@ -116,8 +116,9 @@ refer to a database we are referring to either a DB or a DAM.
 The command DBsplit sets or resets the current partition for a database which is
 determined by 3 parameters: (i) the total number of basepairs to place in each block,
 (ii) the minimum read length of reads to include within a block, and (iii) whether or
-not to only include the longest read from a given well or all reads from a well (NB:
-several reads of the same insert in a given well can be produced by the Pacbio
+not to only include the longest (-l) or median (-m) read from a given well or all
+reads from a well (-a) (NB: several reads of the same insert in a given well can be
+produced by the Pacbio
 instrument).  Note that the length and uniqueness parameters effectively select a
 subset of the reads that contribute to the size of a block.  We call this subset the
 *trimmed* data base.  Some commands operate on the entire database, others on the
@@ -259,7 +260,7 @@ should be used, and the characters per line, or line width, can be set to any po
 value with the -w option.
 
 ```
-9. DBsplit [-af] [-x<int>] [-s<double(200.)>] <path:db|dam>
+9. DBsplit [-aflm] [-x<int>] [-s<double(200.)>] <path:db|dam>
 ```
 
 Divide the database \<path\>.db or \<path\>.dam conceptually into a series of blocks
@@ -277,6 +278,12 @@ associated with the DB are also computed on the fly when loading a database bloc
 If the -f option is set, the split is forced regardless of whether or not the DB in
 question has previously bin split, i.e. one is not interactively asked if they wish
 to proceed.
+
+By default, the primary read for each well consists of the longest subread of the insert
+from the well.  By setting the -m parameter, the subread of median length becomes the
+primary read instead.  One can at any later time change this back to the default longest
+by splitting again with the -l parameter set.  The setting of the primary reads occurs
+regardless of whether the -a parameter is set or not.
 
 ```
 10. DBtrim [-af] [-x<int>] <path:db|dam>

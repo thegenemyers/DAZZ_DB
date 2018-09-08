@@ -32,7 +32,15 @@
 #define PATHSEP "/"
 #endif
 
-static char *Usage = "[-af] [-x<int>] [-s<double(200.)>] <path:db|dam>";
+static char *Usage = "[-aflm] [-x<int>] [-s<double(200.)>] <path:db|dam>";
+
+static DAZZ_READ *reads;
+
+static int MSORT(const void *l, const void *r)
+{ int x = *((int *) l);
+  int y = *((int *) r);
+  return (reads[x].rlen - reads[y].rlen);
+}
 
 int main(int argc, char *argv[])
 { DAZZ_DB    db, dbs;
@@ -40,11 +48,16 @@ int main(int argc, char *argv[])
   FILE      *dbfile, *ixfile;
   char      *dbfile_name, *ixfile_name;
   int        status;
+  int        nreads;
+
+  int        medmax = 0;
+  int       *msort = NULL;
 
   int        FORCE;
   int        ALL;
   int        CUTOFF;
   int64      SIZE;
+  int        SELECT;
 
   { int   i, j, k;
     int   flags[128];
@@ -53,6 +66,7 @@ int main(int argc, char *argv[])
 
     ARG_INIT("DBsplit")
 
+    SELECT = -1;
     CUTOFF = 0;
     size   = 200;
 
@@ -61,7 +75,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("af")
+            ARG_FLAGS("aflm")
             break;
           case 'x':
             ARG_NON_NEGATIVE(CUTOFF,"Min read length cutoff")
@@ -82,6 +96,16 @@ int main(int argc, char *argv[])
     ALL   = flags['a'];
     FORCE = flags['f'];
 
+    if (flags['l'])
+      { SELECT = 0;
+        if (flags['m'])
+          { fprintf(stderr,"%s: Cannot set both -l and -m, mutually exclusive\n",Prog_Name);
+            exit (1);
+          }
+      }
+    else if (flags['m'])
+      SELECT = 1;
+
     if (argc != 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         fprintf(stderr,"\n");
@@ -89,6 +113,9 @@ int main(int argc, char *argv[])
         fprintf(stderr,"      -x: Trimmed DB has reads >= this threshold.\n");
         fprintf(stderr,"      -a: Trimmed DB contains all reads from a well (not just longest).\n");
         fprintf(stderr,"      -f: Force the split to occur even if already split.\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -l: Set primary read for a well to be the longest.\n");
+        fprintf(stderr,"      -m: Set primary read for a well to be the median.\n");
         exit (1);
       }
   }
@@ -102,6 +129,8 @@ int main(int argc, char *argv[])
     { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[1]);
       exit (1);
     }
+  reads  = db.reads;
+  nreads = db.ureads;
 
   { char    *pwd, *root;
     char     buffer[2*MAX_NAME+100];
@@ -152,9 +181,49 @@ int main(int argc, char *argv[])
     FPRINTF(dbfile,DB_PARAMS,SIZE,CUTOFF,ALL)
   }
 
-  { DAZZ_READ *reads  = db.reads;
-    int        nreads = db.ureads;
-    int64      totlen;
+  if (SELECT >= 0)
+    { int        i, j, k, h;
+      int        off;
+
+      off = (~ DB_BEST);
+
+      for (i = 0; i < nreads; i = j)
+        { j = i+1;
+          reads[i].flags &= off;
+          while ((reads[j].flags & DB_CSS) != 0)
+            reads[j++].flags &= off;
+  
+          if (j-i <= 1)
+            { reads[i].flags |= DB_BEST;
+              continue;
+            }
+  
+          if (SELECT == 0)
+            { int mlen;
+
+              mlen = reads[h = i].rlen;
+              for (k = i+1; k < j; k++)
+                if (mlen < reads[k].rlen)
+                  mlen = reads[h = k].rlen;
+            }
+          else
+            { if (j-i > medmax)
+                { medmax = 1.2*(j-i) + 1000;
+                  msort  = (int *) Realloc(msort,sizeof(int)*medmax,"Allocating Median Array");
+                  if (msort == NULL)
+                    exit (1);
+                }
+              for (k = i; k < j; k++)
+                msort[k-i] = k;
+              qsort(msort,j-i,sizeof(int),MSORT);
+              h = msort[(j-i)/2];
+            }
+          reads[h].flags |= DB_BEST;
+        } 
+    }
+
+
+  { int64      totlen;
     int        nblock, ireads, treads, rlen, fno;
     int        i, upos, css;
 
@@ -218,6 +287,8 @@ int main(int argc, char *argv[])
     dbs.treads = treads;
     FSEEKO(ixfile,0,SEEK_SET)
     FWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
+    if (SELECT >= 0)
+      FWRITE(reads,sizeof(DAZZ_READ),nreads,ixfile)
   }
 
   FCLOSE(ixfile)
