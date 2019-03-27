@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
         exit (1);
       }
 
-    if ( (IFILE == NULL && PIPE == NULL && argc <= 2) || 
+    if ( (IFILE == NULL && PIPE == NULL && argc <= 2) ||
         ((IFILE != NULL || PIPE != NULL) && argc != 2))
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage);
         fprintf(stderr,"\n");
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 
   { int            maxlen;
     int64          totlen, count[4];
-    int            pmax, rmax;
+    int64          pmax, rmax;
     DAZZ_READ     *prec;
     char          *read;
     int            c;
@@ -410,7 +410,7 @@ int main(int argc, char *argv[])
 
         { int j;
 
- 
+
           if (PIPE == NULL || (strcmp(core,"stdout") != 0 &&
                  (ofiles == 0 || strcmp(core,flist[ofiles-1]) != 0)))
             for (j = 0; j < ofiles; j++)
@@ -514,7 +514,7 @@ int main(int argc, char *argv[])
                     break;
                   rlen += x;
                   if (rlen + MAX_NAME > rmax)
-                    { rmax = ((int) (1.2 * rmax)) + 1000 + MAX_NAME;
+                    { rmax = ((int64) (1.2 * rmax)) + 1000 + MAX_NAME;
                       read = (char *) realloc(read,rmax+1);
                       if (read == NULL)
                         { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
