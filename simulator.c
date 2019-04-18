@@ -211,7 +211,7 @@ DAZZ_DB *load_and_fill(char *name, int *pscaffs)
   PRC = PRA + db.freq[1];
   PRG = PRC + db.freq[2];
 
-  nreads  = db.nreads;  
+  nreads  = db.nreads;
   reads   = db.reads;
 
   nscaffs = 0;
@@ -282,7 +282,7 @@ DAZZ_DB *load_and_fill(char *name, int *pscaffs)
         FSEEKO(bases,off,SEEK_SET)
       clen = COMPRESSED_LEN(len);
       if (clen > 0)
-        FREAD(seq+u,clen,1,bases)
+        FFREAD(seq+u,clen,1,bases)
       Uncompress_Read(len,seq+u);
       if (reads[i].origin == 0)
         reads[c].boff = o;
@@ -313,7 +313,7 @@ DAZZ_DB *load_and_fill(char *name, int *pscaffs)
 
 static void shotgun(DAZZ_DB *source, int nscaffs)
 { DAZZ_READ *reads;
-  int        gleng;
+  int64      gleng;
   int        maxlen, nreads, qv;
   int64      totlen, totbp;
   char      *rbuffer, *bases;
@@ -339,7 +339,7 @@ static void shotgun(DAZZ_DB *source, int nscaffs)
   weights = (double *) Malloc(sizeof(double)*(nscaffs+1),"Allocating contig weights");
   if (weights == NULL)
     exit (1);
-  
+
   { double r;
 
     r = 0.;
@@ -409,7 +409,7 @@ static void shotgun(DAZZ_DB *source, int nscaffs)
           if (x < INS_RATE)
             ins += 1;
           else if (x < IDL_RATE)
-            del += 1; 
+            del += 1;
         }
       sdl -= ins;
       elen = len + (ins-del);

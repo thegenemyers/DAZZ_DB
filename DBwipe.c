@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
     if (index_name == NULL || index == NULL)
       exit (1);
 
-    FWRITE(&db,sizeof(DAZZ_DB),1,index)
-    FWRITE(db.reads,sizeof(DAZZ_READ),db.nreads,index)
+    FFWRITE(&db,sizeof(DAZZ_DB),1,index)
+    FFWRITE(db.reads,sizeof(DAZZ_READ),db.nreads,index)
 
     FCLOSE(index);
   }

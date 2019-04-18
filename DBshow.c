@@ -226,11 +226,17 @@ int main(int argc, char *argv[])
       }
   }
 
-  //  Load QVs if requested
+  //  Load QVs or Arrows if requested
 
   if (DOQVS)
-    { if (Load_QVs(db) < 0)
+    { if (Open_QVs(db) < 0)
         { fprintf(stderr,"%s: QVs requested, but no .qvs for data base\n",Prog_Name);
+          exit (1);
+        }
+    }
+  if (DOARR)
+    { if (Open_Arrow(db) < 0)
+        { fprintf(stderr,"%s: Arrow requested, but no .arr for data base\n",Prog_Name);
           exit (1);
         }
     }
@@ -248,7 +254,7 @@ int main(int argc, char *argv[])
         else if (kind != MASK_TRACK)
           printf("%s: Warning: %s track is not a mask track.\n",Prog_Name,MASK[i]);
         else if (status == 0)
-          Load_Track(db,MASK[i]);
+          Open_Track(db,MASK[i]);
         else if (status == 1 && !TRIM)
           printf("%s: Warning: %s track is for a trimmed db but -u is set.\n",Prog_Name,MASK[i]);
       }
@@ -336,10 +342,8 @@ int main(int argc, char *argv[])
 
       for (i = 0; i < MTOP; i++)
         { status = Check_Track(db,MASK[i],&kind);
-          if (status < 0)
-            continue;
-          else if (status == 1 && kind == MASK_TRACK)
-            Load_Track(db,MASK[i]);
+          if (status == 1 && kind == MASK_TRACK)
+            Open_Track(db,MASK[i]);
         }
     }
 
@@ -432,26 +436,35 @@ int main(int argc, char *argv[])
   //    range pairs in pts[0..reps) and according to the display options.
 
   { DAZZ_READ  *reads;
-    DAZZ_TRACK *first;
+    DAZZ_TRACK *first, *track;
     char       *read, *arrow, **entry;
+    int        *data[MTOP];
     int         c, b, e, i;
     int         hilight, substr;
     int         map;
     int       (*iscase)(int);
 
-    read  = New_Read_Buffer(db);
+    read = New_Read_Buffer(db);
+
     if (DOQVS)
       { entry = New_QV_Buffer(db);
+        arrow = NULL;
+        first = db->tracks->next;
+      }
+    else if (DOARR)
+      { entry = NULL;
+        arrow = New_Read_Buffer(db);
         first = db->tracks->next;
       }
     else
       { entry = NULL;
+        arrow = NULL;
         first = db->tracks;
       }
-    if (DOARR)
-      arrow = New_Read_Buffer(db);
-    else
-      arrow = NULL;
+
+    c = 0;
+    for (track = first; track != NULL; track = track->next)
+      data[c++] = (int *) New_Track_Buffer(track);
 
     if (UPPER == 1)
       { hilight = 'A'-'a';
@@ -491,7 +504,6 @@ int main(int argc, char *argv[])
             int         flags, qv;
             float       snr[4];
             DAZZ_READ  *r;
-            DAZZ_TRACK *track;
 
             r   = reads + i;
             len = r->rlen;
@@ -549,32 +561,30 @@ int main(int argc, char *argv[])
             if (DOARR)
               Load_Arrow(db,i,arrow,1);
 
-            for (track = first; track != NULL; track = track->next)
-              { int64 *anno;
-                int   *data;
-                int64  s, f, j;
-                int    bd, ed, m;
+            { int t;
 
-                anno = (int64 *) track->anno;
-                data = (int *) track->data;
+              for (t = 0, track = first; track != NULL; track = track->next, t += 1)
+                { int   *d;
+                  int64  j, v;
+                  int    bd, ed, m;
 
-                s = (anno[i] >> 2);
-                f = (anno[i+1] >> 2);
-                if (s < f)
-                  { for (j = s; j < f; j += 2)
-                      { bd = data[j];
-                        ed = data[j+1];
-                        if (DOSEQ)
-                          for (m = bd; m < ed; m++)
-                            if (iscase(read[m]))
-                              read[m] = (char) (read[m] + hilight);
-                        if (j == s)
-                          PRINTF("> %s:",track->name)
-                        PRINTF(" [%d,%d]",bd,ed)
-                      }
-                    PRINTF("\n")
-                  }
-              }
+                  d = data[t];
+                  v = (Load_Track_Data(track,i,d) >> 2);
+                  if (v > 0)
+                    { PRINTF("> %s:",track->name)
+                      for (j = 0; j < v; j += 2)
+                        { bd = d[j];
+                          ed = d[j+1];
+                          if (DOSEQ)
+                            for (m = bd; m < ed; m++)
+                              if (iscase(read[m]))
+                                read[m] = (char) (read[m] + hilight);
+                          PRINTF(" [%d,%d]",bd,ed)
+                        }
+                      PRINTF("\n")
+                    }
+                }
+            }
 
             if (QUIVA)
               { int k;

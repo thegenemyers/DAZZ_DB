@@ -323,7 +323,8 @@ int main(int argc, char *argv[])
 
   { int            maxlen;
     int64          totlen, count[4];
-    int            pmax, rmax;
+    int64          rmax;
+    int            pmax;
     DAZZ_READ     *prec;
     char          *read;
     int            c;
@@ -444,11 +445,19 @@ int main(int argc, char *argv[])
             goto error;
           }
 
-        { char *find;
+        { char *find, *secn;
           int   well, beg, end, qv;
 
           find = index(read+1,'/');
+          if (find != NULL)
+            secn = index(find+1,'/');
           if (find != NULL && sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv) >= 3)
+            { *find = '\0';
+              strcpy(prolog,read+1);
+              *find = '/';
+            }
+          else if (find != NULL && secn != NULL && sscanf(find+1,"%d/ccs\n",&well) >= 1
+                                && strncmp(secn,"ccs",3) == 0)
             { *find = '\0';
               strcpy(prolog,read+1);
               *find = '/';
@@ -488,9 +497,15 @@ int main(int argc, char *argv[])
               *find = '/';
               x = sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv);
               if (x < 3)
-                { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
-                                 core,nline);
-                  goto error;
+                { char *secn = index(find+1,'/');
+                  x = sscanf(find+1,"%d/ccs\n",&well);
+                  if (secn == NULL || strncmp(secn,"ccs",3) != 0 || x < 1)
+                    { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
+                                     core,nline);
+                      goto error;
+                    }
+                  beg = 0;
+                  qv  = 0;
                 }
               else if (x == 3)
                 qv = 0;
@@ -514,7 +529,7 @@ int main(int argc, char *argv[])
                     break;
                   rlen += x;
                   if (rlen + MAX_NAME > rmax)
-                    { rmax = ((int) (1.2 * rmax)) + 1000 + MAX_NAME;
+                    { rmax = ((int64) (1.2 * rmax)) + 1000 + MAX_NAME;
                       read = (char *) realloc(read,rmax+1);
                       if (read == NULL)
                         { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);

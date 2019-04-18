@@ -133,11 +133,11 @@ int main(int argc, char *argv[])
         dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"w");
         if (dfile == NULL || afile == NULL)
           exit (1);
-        FWRITE(&(db->nreads),sizeof(int),1,afile)
-        FWRITE(&size,sizeof(int),1,afile)
+        FFWRITE(&(db->nreads),sizeof(int),1,afile)
+        FFWRITE(&size,sizeof(int),1,afile)
         nreads = 0;
         indx = 0;
-        FWRITE(&indx,sizeof(int64),1,afile)
+        FFWRITE(&indx,sizeof(int64),1,afile)
       }
     else
       { dfile = Fopen(Catenate(pwd,PATHSEP,root,".dust.data"),"r+");
@@ -151,8 +151,8 @@ int main(int argc, char *argv[])
             exit(0);
           }
         FSEEKO(afile,0,SEEK_SET)
-        FWRITE(&(db->nreads),sizeof(int),1,afile)
-        FWRITE(&size,sizeof(int),1,afile)
+        FFWRITE(&(db->nreads),sizeof(int),1,afile)
+        FFWRITE(&size,sizeof(int),1,afile)
         FSEEKO(afile,0,SEEK_END)
         FSEEKO(dfile,0,SEEK_END)
         FTELLO(indx,dfile)
@@ -435,8 +435,8 @@ int main(int argc, char *argv[])
               }
           mtop  = mask + ntop;
           indx += ntop*sizeof(int);
-          FWRITE(&indx,sizeof(int64),1,afile)
-          FWRITE(mask1,sizeof(int),ntop,dfile)
+          FFWRITE(&indx,sizeof(int64),1,afile)
+          FFWRITE(mask1,sizeof(int),ntop,dfile)
         }
 
 #ifdef DEBUG

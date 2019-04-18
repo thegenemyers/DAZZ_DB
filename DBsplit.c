@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
     for (i = 0; i < nfiles; i++)
       FGETS(buffer,2*MAX_NAME+100,dbfile)
 
-    FREAD(&dbs,sizeof(DAZZ_DB),1,ixfile)
+    FFREAD(&dbs,sizeof(DAZZ_DB),1,ixfile)
 
     if (dbs.cutoff >= 0 && !FORCE)
       { printf("You are about to overwrite the current partition settings.  This\n");
@@ -286,9 +286,9 @@ int main(int argc, char *argv[])
       dbs.allarr &= ~DB_ALL;
     dbs.treads = treads;
     FSEEKO(ixfile,0,SEEK_SET)
-    FWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
+    FFWRITE(&dbs,sizeof(DAZZ_DB),1,ixfile)
     if (SELECT >= 0)
-      FWRITE(reads,sizeof(DAZZ_READ),nreads,ixfile)
+      FFWRITE(reads,sizeof(DAZZ_READ),nreads,ixfile)
   }
 
   FCLOSE(ixfile)

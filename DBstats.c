@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
         else if (kind != MASK_TRACK)
           fprintf(stderr,"%s: Warning: %s track is not a mask track.\n",Prog_Name,MASK[i]);
         else if (status == 0)
-          Load_Track(db,MASK[i]);
+          Open_Track(db,MASK[i]);
         else if (status == 1 && !TRIM)
           fprintf(stderr,"%s: Warning: %s track is for a trimmed db but -u is set.\n",
                          Prog_Name,MASK[i]);
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
             if (status < 0)
               continue;
             else if (status == 1)
-              Load_Track(db,MASK[i]);
+              Open_Track(db,MASK[i]);
           }
       }
   }
@@ -267,11 +267,16 @@ int main(int argc, char *argv[])
     DAZZ_TRACK *track;
 
     for (track = db->tracks; track != NULL; track = track->next)
-      { char  *data = track->data;
-        int64 *anno = (int64 *) track->anno;
+      { char  *data;
+        int64 *anno;
         int   *idata, *edata;
         int64  ave, dev, btot;
         int    k, rlen, cum;
+
+        Load_All_Track_Data(track);
+
+        data = track->data;
+        anno = (int64 *) track->anno;
 
         totlen = 0;
         numint = 0;
@@ -341,6 +346,8 @@ int main(int argc, char *argv[])
               }
           }
         printf("\n");
+
+        Close_Track(db,track);
       }
   }
 
