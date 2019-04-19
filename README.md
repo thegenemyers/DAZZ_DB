@@ -2,6 +2,7 @@
 
 ## _Author:  Gene Myers_
 ## _First:   July 17, 2013_
+## _Current:   April 19, 2019_
 
 For typeset documentation, examples of use, and design philosophy please go to
 my [blog](https://dazzlerblog.wordpress.com/command-guides/dazz_db-command-guide).
