@@ -445,19 +445,16 @@ int main(int argc, char *argv[])
             goto error;
           }
 
-        { char *find, *secn;
+        { char *find;
           int   well, beg, end, qv;
 
           find = index(read+1,'/');
-          if (find != NULL)
-            secn = index(find+1,'/');
           if (find != NULL && sscanf(find+1,"%d/%d_%d RQ=0.%d\n",&well,&beg,&end,&qv) >= 3)
             { *find = '\0';
               strcpy(prolog,read+1);
               *find = '/';
             }
-          else if (find != NULL && secn != NULL && sscanf(find+1,"%d/ccs\n",&well) >= 1
-                                && strncmp(secn,"ccs",3) == 0)
+          else if (find != NULL && sscanf(find+1,"%d/ccs\n",&well) >= 1)
             { *find = '\0';
               strcpy(prolog,read+1);
               *find = '/';
@@ -499,7 +496,7 @@ int main(int argc, char *argv[])
               if (x < 3)
                 { char *secn = index(find+1,'/');
                   x = sscanf(find+1,"%d/ccs\n",&well);
-                  if (secn == NULL || strncmp(secn,"ccs",3) != 0 || x < 1)
+                  if (secn == NULL || strncmp(secn+1,"ccs",3) != 0 || x < 1)
                     { fprintf(stderr,"File %s.fasta, Line %d: Pacbio header line format error\n",
                                      core,nline);
                       goto error;
