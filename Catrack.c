@@ -175,14 +175,16 @@ int main(int argc, char *argv[])
                               "Allocating .data file name");
           if (afile_name == NULL || dfile_name == NULL)
             goto error;
-            
   
           afile = fopen(afile_name,"r");
           if (afile == NULL)
-            break;
-          dfile = fopen(Numbered_Suffix(prefix,nfiles+1,Catenate(".",argv[c],".","data")),"r");
+            { free(afile_name);
+              free(dfile_name);
+              break;
+            }
+          dfile = fopen(dfile_name,"r");
           if (dfile == NULL && errno != ENOENT)
-            { fprintf(stderr,"%s: The file %s is corrupted\n",Prog_Name,dfile_name);
+            { fprintf(stderr,"%s: Cannot find/open data file %s\n",Prog_Name,dfile_name);
               goto error;
             }
   
@@ -194,14 +196,14 @@ int main(int argc, char *argv[])
             { fprintf(stderr,"  Concatenating %s%d.%s ...\n",prefix,nfiles+1,argv[c]);
               fflush(stderr);
             }
-    
+
           FFREAD(&tracklen,sizeof(int),1,afile)
           FFREAD(&size,sizeof(int),1,afile)
           if (size == 0)
             esize = 8;
           else
             esize = size;
-  
+    
           if (nfiles == 0)
             { tracksiz = size;
               if (dfile != NULL)
@@ -325,6 +327,8 @@ int main(int argc, char *argv[])
           nfiles   += 1;
           if (dfile != NULL)
             fclose(dfile);
+          free(dfile_name);
+          free(afile_name);
         }
 
       if (nfiles == 0)
@@ -363,10 +367,8 @@ int main(int argc, char *argv[])
         }
 
       if (nfiles != nblocks)
-        { fprintf(stderr,"%s: Did not catenate all tracks of DB (nfiles %d != nblocks %d)\n",
-	                 Prog_Name, nfiles, nblocks);
-          goto error;
-        }
+        fprintf(stderr,"%s: Warning: Did not catenate all tracks of DB (nfiles %d != nblocks %d)\n",
+                       Prog_Name,nfiles,nblocks);
   
       FCLOSE(aout);
       if (dout != NULL)
@@ -376,7 +378,7 @@ int main(int argc, char *argv[])
         { int   i;
           char *name;
 
-          for (i = 1; i <= nblocks ;i++)
+          for (i = 1; i <= nfiles ;i++)
             { name = Numbered_Suffix(prefix,i,Catenate(".",argv[c],".","anno"));
               if (unlink(name) != 0)
                 fprintf(stderr,"%s: [WARNING] Couldn't delete file %s\n",Prog_Name,name);

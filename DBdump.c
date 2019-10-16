@@ -547,11 +547,11 @@ int main(int argc, char *argv[])
             c += 2;
           }
  
-        if (map > 0 && findx[map-1] <= b+FirstRead && b+FirstRead < findx[map])
+        if (map > 0 && findx[map-1] <= b && b < findx[map])
           ;
         else
           { map = 0;
-            while (b + FirstRead >= findx[map])
+            while (b >= findx[map])
               map += 1;
             map -= 1;
           }
@@ -566,7 +566,7 @@ int main(int argc, char *argv[])
 
             noreads += 1;
 
-            if (DOFLN && i+FirstRead >= findx[map])
+            if (DOFLN && i >= findx[map])
               { int ten;
 
                 if (strcmp(ffile[map+1],ffile[last]) != 0)
@@ -595,7 +595,7 @@ int main(int argc, char *argv[])
                       hdrmax = ten;
                     hdrtot += ten;
                   }
-                else if (i+FirstRead >= findx[map])
+                else if (i >= findx[map])
                   { map += 1;
                     ten = strlen(fhead[map]);
 
@@ -713,11 +713,11 @@ int main(int argc, char *argv[])
             c += 2;
           }
 
-        if (map > 0 && findx[map-1] <= b+FirstRead && b+FirstRead < findx[map])
+        if (map > 0 && findx[map-1] <= b && b < findx[map])
           ;
         else
           { map = 0;
-            while (b + FirstRead >= findx[map])
+            while (b >= findx[map])
               map += 1;
             map -= 1;
           }
@@ -736,7 +736,7 @@ int main(int argc, char *argv[])
             flags = r->flags;
             qv    = (flags & DB_QV);
 
-            if (DOFLN && i+FirstRead >= findx[map])
+            if (DOFLN && i >= findx[map])
               { if (strcmp(ffile[map+1],ffile[last]) != 0)
                   { PRINTF("F %ld %s\n",strlen(ffile[map+1]),ffile[map+1])
                     last = map+1;
@@ -756,7 +756,7 @@ int main(int argc, char *argv[])
                     PRINTF("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len)
                   }
                 else
-                  { if (i+FirstRead >= findx[map])
+                  { if (i >= findx[map])
                       { map += 1;
                         PRINTF("H %ld %s\n",strlen(fhead[map]),fhead[map])
                       }
