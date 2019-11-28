@@ -65,45 +65,27 @@ int main(int argc, char *argv[])
 
   //  Open DB stub and get number of blocks
 
-  { char *pwd, *root;
-    int   i, plen, index, isdam;
-    FILE *dstub;
-    char *dstub_name;
+  { char      *pwd, *root;
+    int        plen;
+    DAZZ_STUB *stub;
 
     plen = strlen(argv[1]);
+    pwd  = PathTo(argv[1]);
     if (strcmp(argv[1]+(plen-3),".dam") == 0)
-      root = Root(argv[1],".dam");
+      { root = Root(argv[1],".dam");
+        stub = Read_DB_Stub(Catenate(pwd,"/",root,".dam"),0);
+      }
     else
-      root = Root(argv[1],".db");
-    pwd = PathTo(argv[1]);
+      { root = Root(argv[1],".db");
+        stub = Read_DB_Stub(Catenate(pwd,"/",root,".db"),0);
+      }
+
+    nblocks = stub->nblocks;
+
+    Free_DB_Stub(stub);
+
     prefix = Strdup(Catenate(pwd,PATHSEP,root,"."),"Allocating track name");
 
-    dstub = fopen(Catenate(pwd,"/",root,".db"),"r");
-    isdam = 0;
-    if (dstub == NULL)
-      { dstub = fopen(Catenate(pwd,"/",root,".dam"),"r");
-        isdam = 1;
-        if (dstub == NULL)
-          { fprintf(stderr,"%s: Cannot find %s either as a .db or a .dam\n",Prog_Name,root);
-            exit (1);
-          }
-      }
-    dstub_name = Strdup(Catenate(pwd,"/",root,isdam?".dam":".db"),"Allocating db file name");
-    if (dstub_name == NULL)
-      exit (1);
-    
-    FSCANF(dstub,DB_NFILE,&nblocks)
-    
-    for (i = 0; i < nblocks; i++)
-      { char prolog[MAX_NAME], fname[MAX_NAME];
-        
-        FSCANF(dstub,DB_FDATA,&index,fname,prolog)
-      }
-    
-    FSCANF(dstub,DB_NBLOCK,&nblocks)
-
-    fclose(dstub);
-    free(dstub_name);
     free(pwd);
     free(root);
   }

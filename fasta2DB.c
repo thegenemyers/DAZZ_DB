@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
               offset += clen;
 
               if (pwell == well)
-                { prec[pcnt].flags |= DB_CSS;
+                { prec[pcnt].flags |= DB_CCS;
                   pcnt += 1;
                   if (pcnt >= pmax)
                     { pmax = ((int) (pcnt*1.2)) + 100;

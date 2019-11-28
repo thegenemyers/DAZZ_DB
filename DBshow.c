@@ -81,12 +81,13 @@ int next_read(File_Iterator *it)
 
 int main(int argc, char *argv[])
 { DAZZ_DB    _db, *db = &_db;
+  DAZZ_STUB  *stub;
   FILE       *hdrs = NULL;
   char       *hdrs_name = NULL;
 
   int         nfiles;
-  char      **flist = NULL;
-  int        *findx = NULL;
+  char      **flist;
+  int        *findx;
 
   int            reps, *pts;
   int            input_pts;
@@ -264,44 +265,21 @@ int main(int argc, char *argv[])
 
   if (!DAM)
     { char *pwd, *root;
-      FILE *dstub;
-      char *dstub_name;
       int   i;
 
       root   = Root(argv[1],".db");
       pwd    = PathTo(argv[1]);
       if (db->part > 0)
         *rindex(root,'.') = '\0';
-      dstub_name = Strdup(Catenate(pwd,"/",root,".db"),"Allocating db file name");
-      dstub      = Fopen(dstub_name,"r");
-      if (dstub_name == NULL || dstub == NULL)
-        exit (1);
-      free(pwd);
-      free(root);
+      stub = Read_DB_Stub(Catenate(pwd,"/",root,".db"),DB_STUB_NREADS|DB_STUB_PROLOGS);
 
-      FSCANF(dstub,DB_NFILE,&nfiles)
-
-      flist = (char **) Malloc(sizeof(char *)*nfiles,"Allocating file list");
-      findx = (int *) Malloc(sizeof(int *)*(nfiles+1),"Allocating file index");
-      if (flist == NULL || findx == NULL)
-        exit (1);
-
-      findx += 1;
-      findx[-1] = 0;
-
-      for (i = 0; i < nfiles; i++)
-        { char prolog[MAX_NAME], fname[MAX_NAME];
-  
-          FSCANF(dstub,DB_FDATA,findx+i,fname,prolog)
-          if ((flist[i] = Strdup(prolog,"Adding to file list")) == NULL)
-            exit (1);
-        }
-
-      fclose(dstub);
-      free(dstub_name);
-
+      nfiles = stub->nfiles;
+      flist  = stub->prolog;
+      findx  = stub->nreads;
+      
       //  If TRIM (the default) then "trim" prolog ranges and the DB
 
+      findx[-1] = 0;
       if (TRIM)
         { int        nid, oid, lid;
           int        cutoff, allflag;
@@ -660,13 +638,7 @@ int main(int argc, char *argv[])
   if (DAM)
     fclose(hdrs);
   else
-    { int i;
-
-      for (i = 0; i < nfiles; i++)
-        free(flist[i]);
-      free(flist);
-      free(findx-1);
-    }
+    Free_DB_Stub(stub);
   Close_DB(db);
 
   exit (0);

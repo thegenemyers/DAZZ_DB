@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
       for (i = 0; i < nreads; i = j)
         { j = i+1;
           reads[i].flags &= off;
-          while ((reads[j].flags & DB_CSS) != 0)
+          while ((reads[j].flags & DB_CCS) != 0)
             reads[j++].flags &= off;
   
           if (j-i <= 1)
@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
     if (ALL)
       for (i = 0; i < nreads; i++)
         { rlen = reads[i].rlen;
-          if ((reads[i].flags & DB_CSS) == 0)
+          if ((reads[i].flags & DB_CCS) == 0)
             css = 0;
           if (rlen >= CUTOFF)
             { if (css == 0 && totlen >= SIZE)
