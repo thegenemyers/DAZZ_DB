@@ -310,7 +310,6 @@ int main(int argc, char *argv[])
     free(pwd);
     free(root);
 
-
     fhead  = stub->prolog;
     ffile  = stub->fname;
     findx  = stub->nreads;

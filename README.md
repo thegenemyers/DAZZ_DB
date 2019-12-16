@@ -374,7 +374,7 @@ the reads for testing purposes.
 ```
 
 Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
-which information to show about them including any mask tracks.  The difference is
+which information to show including any mask tracks.  The difference is
 that the information is written in a very simple "1-code" ASCII format that makes it
 easy for one to read and parse the information for further use.  The option flags determine
 which items of information are output as follows:
