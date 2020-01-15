@@ -305,9 +305,10 @@ int main(int argc, char *argv[])
             }
         }
 
-      else if (db->part > 0)
-        { for (i = 0; i < nfiles; i++)
-            findx[i] -= db->ufirst;
+      else
+        { if (db->part > 0)
+            for (i = 0; i < nfiles; i++)
+              findx[i] -= db->ufirst;
         }
     }
 
