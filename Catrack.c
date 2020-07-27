@@ -78,6 +78,13 @@ int main(int argc, char *argv[])
     else
       { root = Root(argv[1],".db");
         stub = Read_DB_Stub(Catenate(pwd,"/",root,".db"),0);
+        if (stub == NULL)
+          { stub = Read_DB_Stub(Catenate(pwd,"/",root,".dam"),0);
+            if (stub == NULL)
+              { fprintf(stderr,"%s: Cannot open %s as either a DB or a DAM\n",Prog_Name,argv[1]);
+                exit (1);
+              }
+          }
       }
 
     nblocks = stub->nblocks;
