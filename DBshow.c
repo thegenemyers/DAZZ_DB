@@ -617,10 +617,31 @@ int main(int argc, char *argv[])
                 else if (DOSEQ)
                   { int j;
     
+#ifdef COMPRESS
+  { int k, last;
+
+    last = 0;
+    for (j = fst; j+WIDTH < lst; j += WIDTH)
+      { for (k = j; k < j+WIDTH; k++)
+          if (read[k] != last)
+            { PRINTF("%c",read[k]);
+              last = read[k];
+            }
+        printf("\n");
+      }
+    for (k = j; k < lst; k++)
+      if (read[k] != last)
+        { PRINTF("%c",read[k]);
+          last = read[k];
+        }
+    printf("\n");
+  }
+#else
                     for (j = fst; j+WIDTH < lst; j += WIDTH)
                       PRINTF("%.*s\n",WIDTH,read+j)
                     if (j < lst)
                       PRINTF("%.*s\n",lst-j,read+j)
+#endif
                   }
               }
           }

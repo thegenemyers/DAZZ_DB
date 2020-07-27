@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 
     plen = strlen(argv[1]);
     pwd  = PathTo(argv[1]);
-    if (strcmp(argv[1]+(plen-3),".dam") == 0)
+    if (strcmp(argv[1]+(plen-4),".dam") == 0)
       { root = Root(argv[1],".dam");
         stub = Read_DB_Stub(Catenate(pwd,"/",root,".dam"),0);
       }
@@ -185,7 +185,6 @@ int main(int argc, char *argv[])
             esize = 8;
           else
             esize = size;
-    
           if (nfiles == 0)
             { tracksiz = size;
               if (dfile != NULL)
