@@ -81,18 +81,19 @@ int next_read(File_Iterator *it)
 
 int main(int argc, char *argv[])
 { DAZZ_DB    _db, *db = &_db;
-  DAZZ_STUB  *stub;
+  DAZZ_STUB  *stub = NULL;
   FILE       *hdrs = NULL;
   char       *hdrs_name = NULL;
 
   int         nfiles;
-  char      **flist;
-  int        *findx;
+  char      **flist = NULL;
+  int        *findx = NULL;
 
-  int            reps, *pts;
+  int            reps = 0;
+  int           *pts = NULL;
   int            input_pts;
   File_Iterator *iter = NULL;
-  FILE          *input;
+  FILE          *input = NULL;
 
   int         TRIM, UPPER;
   int         DOSEQ, DOQVS, DOARR, QUIVA, ARROW, DAM;

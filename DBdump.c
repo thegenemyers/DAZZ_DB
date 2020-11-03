@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
   DAZZ_TRACK **MTRACK;
   int       **MDATA;
 
-  DAZZ_TRACK *qv_track;
+  DAZZ_TRACK *qv_track = NULL;
   uint8      *qv_data = NULL;
 
   //  Process arguments

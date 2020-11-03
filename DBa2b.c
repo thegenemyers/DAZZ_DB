@@ -95,12 +95,15 @@ int main(int argc, char *argv[])
           fwrite(buffer[(int) code],sizeof(char),len,stdout);
           break;
         case 'T':                         //  Mask
-          scanf("%d %d",&mno,&len);
-          for (int i = 0; i < len; i++)
-            scanf(" %d %d",masks[mno]+2*i,masks[mno]+2*i+1);
-          fwrite(&mno,sizeof(int),1,stdout);
-          fwrite(&len,sizeof(int),1,stdout);
-          fwrite(masks[mno],sizeof(int),2*len,stdout);
+          { int i;
+
+            scanf("%d %d",&mno,&len);
+            for (i = 0; i < len; i++)
+              scanf(" %d %d",masks[mno]+2*i,masks[mno]+2*i+1);
+            fwrite(&mno,sizeof(int),1,stdout);
+            fwrite(&len,sizeof(int),1,stdout);
+            fwrite(masks[mno],sizeof(int),2*len,stdout);
+          }
       }
     }
 
