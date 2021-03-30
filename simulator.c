@@ -363,7 +363,7 @@ static void shotgun(DAZZ_DB *source, int nscaffs)
       double uni;
       char  *s, *t;
 
-      scf = bin_search(nscaffs,weights,drand48()) - 1;   //  Pick a scaffold with probabilitye
+      scf = bin_search(nscaffs,weights,drand48()) - 1;   //  Pick a scaffold with probability
                                                          //    proportional to its length
 
       uni = drand48();
