@@ -464,23 +464,35 @@ intervals along the read can be specified with the -m option in which case a sum
 and a histogram of the interval lengths is displayed.
 
 ```
-17. DBrm [-v] <path:db|dam> ...
+17. DBrm [-vnf] <path:db|dam> ...
 ```
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
 there are at least two and often several secondary files for each DB including track
 files, and all of these are removed by DBrm.
 If the -v option is set then every file deleted is listed.
+The -n, and -f options are as for the UNIX "rm" command.
 
 ```
-18. DBmv [-v] <old:db|dam> <new:db|dam>
+18. DBmv [-vinf] <old:db|dam> <new:db|dam|dir>
 ```
 
-Rename all the files for the data base old to use the new root.
+If \<new> is a directory then all the files for \<old> are moved
+to the diretory, otherwise, all the files for \<old> are renamed to the given target name.
 If the -v option is set then every file move is displayed.
+The -i, -n, and -f options are as for the UNIX "mv" command.
 
 ```
-19. DBwipe <path:db|dam>
+19. DBcp [-vinf] <old:db|dam> <new:db|dam|dir>
+```
+
+If \<new> is a directory then all the files for \<old> are copied
+to the diretory, otherwise, a copy of all the files for \<old> are created with the given target name.
+If the -v option is set then every file move is displayed.
+The -i, -n, and -f options are as for the UNIX "cp" command.
+
+```
+20. DBwipe <path:db|dam>
 ```
 
 Delete any Arrow or Quiver data from the given databases.  This removes the .arw or
@@ -488,7 +500,7 @@ Delete any Arrow or Quiver data from the given databases.  This removes the .arw
 or Quiver.  Basically, converts an A-DB or Q-DB back to a simple S-DB.
 
 ```
-20.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
+21.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
                                   [-w<int(80)>] [-r<int>] [-M<file>]
 ```
@@ -523,7 +535,7 @@ a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in t
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
 ```
-21. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+22. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
 ```
 
 Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.

@@ -487,7 +487,7 @@ int main(int argc, char *argv[])
                     if (number[(int) read[++i]] < 4)
                       break;
 
-                  if (i >= rlen) break;
+                  // if (i >= rlen) break;
 
                   pbeg = i;
                   prec.fpulse = pbeg;
