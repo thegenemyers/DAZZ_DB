@@ -13,6 +13,7 @@
 #include <ctype.h>
 
 #include "DB.h"
+#include "ONElib.h"
 
 #ifdef HIDE_FILES
 #define PATHSEP "/."
@@ -21,9 +22,34 @@
 #endif
 
 static char *Usage[] =
-    { "[-rhsaiqf] [-uU] [-m<mask>]+",
+    { "[-u] [-aqhwf] [-m<mask>]+",
       "           <path:db|dam> [ <reads:FILE> | <reads:range> ... ]"
     };
+
+static char *One_Schema =
+  "P 3 daz\n"
+
+  "G f 2 3 INT 6 STRING\n"    //  Source file reads came from
+
+  "O R 2 3 INT 6 STRING\n"    //  Read idx and string for read
+
+  "D A 1 6 STRING\n"          //       Arrow pulse widths
+
+  "D D 1 6 STRING\n"          //       Quiva del vals
+  "D C 1 6 STRING\n"          //       Quiva del char
+  "D I 1 6 STRING\n"          //       Quiva ins vals
+  "D M 1 6 STRING\n"          //       Quiva mrg vals
+  "D S 1 6 STRING\n"          //       Quiva sub vals
+
+  "D H 1 6 STRING\n"          //       Original fasta/q header
+
+  "D W 3 3 INT 3 INT 3 INT\n"         //  well, pulse start, pulse end
+  "D N 4 3 INT 3 INT 3 INT 3 INT\n"   //     SNR of ACGT channels (if Arrow-DB)
+  "D Q 1 3 INT\n"                     //     read quality (if Quiva-DB)
+
+  "D X 2 3 INT 6 STRING\n"     //       Prolog: name of track idx
+  "D T 2 3 INT 8 INT_LIST\n";  //       Track idx, interval pairs list
+
 
 #define LAST_READ_SYMBOL   '$'
 #define MAX_BUFFER       10001
@@ -74,15 +100,6 @@ int next_read(File_Iterator *it)
   return (0);
 }
 
-static int qv_map[51] =
-  { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
-    'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-    'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
-    'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
-    'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-    'Y'
-  };
-
 int main(int argc, char *argv[])
 { DAZZ_DB    _db, *db = &_db;
   DAZZ_STUB  *stub;
@@ -90,6 +107,9 @@ int main(int argc, char *argv[])
   int         FirstRead;
   FILE       *hdrs      = NULL;
   char       *hdrs_name = NULL;
+
+  OneSchema *schema;
+  OneFile   *file1;
 
   int         nfiles;
   char      **fhead = NULL;
@@ -103,23 +123,21 @@ int main(int argc, char *argv[])
   File_Iterator *iter = NULL;
   FILE          *input = NULL;
 
-  int         TRIM, UPPER;
-  int         DORED, DOSEQ, DOARW, DOQVS, DOHDR, DOIQV, DOFLN, DAM;
+  int         TRIM, DAM;
+  int         DOARW, DOQVS, DOHDR, DOFLN, DOWEL;
 
   int          MMAX, MTOP;
   char       **MASK;
   DAZZ_TRACK **MTRACK;
   int       **MDATA;
-
-  DAZZ_TRACK *qv_track = NULL;
-  uint8      *qv_data = NULL;
+  int64      *MBUFFER;
 
   //  Process arguments
 
   { int  i, j, k;
     int  flags[128];
 
-    ARG_INIT("DBdump")
+    ARG_INIT("DB2ONE")
 
     MTOP  = 0;
     MMAX  = 10;
@@ -132,7 +150,7 @@ int main(int argc, char *argv[])
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("hfqrsaiuU")
+            ARG_FLAGS("uaqhwf")
             break;
           case 'm':
             if (MTOP >= MMAX)
@@ -150,44 +168,30 @@ int main(int argc, char *argv[])
 
     DAM   = 0;
     TRIM  = 1-flags['u'];
-    UPPER = 1+flags['U'];
-    DOQVS = flags['q'];
-    DORED = flags['r'];
-    DOSEQ = flags['s'];
     DOARW = flags['a'];
+    DOQVS = flags['q'];
     DOHDR = flags['h'];
+    DOWEL = flags['w'];
     DOFLN = flags['f'];
-    DOIQV = flags['i'];
 
     if (argc <= 1)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage[0]);
         fprintf(stderr,"       %*s %s\n",(int) strlen(Prog_Name),"",Usage[1]);
         fprintf(stderr,"\n");
-        fprintf(stderr,"      -r: R #              - read number\n");
-        fprintf(stderr,"      -h: H # string       - fasta header prefix\n");
-        fprintf(stderr,"          L # # #          - location: well, pulse start, pulse end\n");
-        fprintf(stderr,"          Q #              - quality of read (#/1000)\n");
-        fprintf(stderr,"      -s: S # string       - sequence string\n");
-        fprintf(stderr,"      -a: N # # # #        - SNR of ACGT channels (#/100)\n");
-        fprintf(stderr,"          A # string       - arrow pulse-width string\n");
-        fprintf(stderr,"      -i: I # string       ");
-        fprintf(stderr,"- intrinsic quality vector (as an ASCII string)\n");
-        fprintf(stderr,"      -q: d # string       - Quiva deletion values (as an ASCII string)\n");
-        fprintf(stderr,"          c # string       - Quiva deletion character string\n");
-        fprintf(stderr,"          i # string       - Quiva insertion value string\n");
-        fprintf(stderr,"          m # string       - Quiva merge value string\n");
-        fprintf(stderr,"          s # string       - Quiva substitution value string\n");
-        fprintf(stderr,"      -f: F # string       - file name for all until next F\n");
-        fprintf(stderr,"      -m: Tx #n (#b #e)^#n ");
-        fprintf(stderr,"- x'th track on command line, #n intervals all on same line\n");
+        fprintf(stderr,"      Output read idx and sequence by default (R line)\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -a: Output truncated arrow pulse-width string (A line)\n");
+        fprintf(stderr,"      -q: Quiver edit vectors (D, C, I, M, and S lines)\n");
+        fprintf(stderr,"      -h: Output fasta header prefix (H line)\n");
+        fprintf(stderr,"      -w: Output well, pulse start and end (W line)\n");
+        fprintf(stderr,"            + SNR of ACGT channels (if Arrow DB, N line)\n");
+        fprintf(stderr,"            + quality value of read (if Quiver DB, Q line)\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -f: group by origin file (f line)\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"      -m: output *mask* track (T line)\n");
         fprintf(stderr,"\n");
         fprintf(stderr,"      -u: Dump entire untrimmed database.\n");
-        fprintf(stderr,"      -U: Output base pairs in upper case letters\n");
-        exit (1);
-      }
-
-    if ( ! TRIM && DOIQV)
-      { fprintf(stderr,"%s: -i and -u are incompatible\n",Prog_Name);
         exit (1);
       }
   }
@@ -368,27 +372,19 @@ int main(int argc, char *argv[])
   else
     FirstRead = db->ufirst;
 
-  { int c;
+  { int c, n;
 
+    n = 0;
     for (c = 0; c < MTOP; c++)
-      MDATA[c] = (int *) New_Track_Buffer(MTRACK[c]);
+      { MDATA[c] = (int *) New_Track_Buffer(MTRACK[c]);
+        if (n < MTRACK[c]->dmax)
+          n = MTRACK[c]->dmax;
+      }
+    if (n > 0)
+      MBUFFER = Malloc(sizeof(int64)*(n/sizeof(int)),"Allocating track buffer");
+    else
+      MBUFFER = NULL;
   }
-
-  if (DOIQV)
-    { int status, kind;
-
-      status = Check_Track(db,"qual",&kind);
-      if (status == -2)
-        { fprintf(stderr,"%s: .qual-track does not exist for this db.\n",Prog_Name);
-          exit (1);
-        }
-      if (status == -1)
-        { fprintf(stderr,"%s: .qual-track not sync'd with db.\n",Prog_Name);
-          exit (1);
-        }
-      qv_track = Open_Track(db,"qual");
-      qv_data  = (uint8 *) New_Track_Buffer(qv_track);
-    }
 
   //  Process read index arguments into a list of read ranges
 
@@ -476,173 +472,9 @@ int main(int argc, char *argv[])
         }
     }
 
-  //  Scan to count the size of things
-
-  { DAZZ_READ  *reads;
-    int         c, b, e, i, m;
-    int         map, substr, last;
-    int64       noreads;
-    int64       seqmax, seqtot;
-    int64       iqvmax, iqvtot;
-    int64       flnmax, flntot;
-    int64       hdrmax, hdrtot;
-    int64       trkmax[MTOP], trktot[MTOP];
-
-    map    = 0;
-    reads  = db->reads;
-    substr = 0;
-    last   = -1;
-
-    noreads = 0;
-    seqmax = 0;
-    seqtot = 0;
-    iqvmax = 0;
-    iqvtot = 0;
-    flnmax = 0;
-    flntot = 0;
-    hdrmax = 0;
-    hdrmax = 0;
-    hdrtot = 0;
-    for (m = 0; m < MTOP; m++)
-      { trkmax[m] = 0;
-        trktot[m] = 0;
-      }
-
-    c = 0;
-    while (1)
-      { if (input_pts)
-          { if (next_read(iter))
-              break;
-            e = iter->read;
-            b = e-1;
-            substr = (iter->beg >= 0);
-          }
-        else
-          { if (c >= reps)
-              break;
-            b = pts[c]-1;
-            e = pts[c+1];
-            if (e > db->nreads)
-              e = db->nreads;
-            c += 2;
-          }
- 
-        if (map > 0 && findx[map-1] <= b && b < findx[map])
-          ;
-        else
-          { map = 0;
-            while (b >= findx[map])
-              map += 1;
-            map -= 1;
-          }
-
-        for (i = b; i < e; i++)
-          { int         len, ten;
-            int         fst, lst;
-            DAZZ_READ  *r;
-
-            r   = reads + i;
-            len = r->rlen;
-
-            noreads += 1;
-
-            if (DOFLN && i >= findx[map])
-              { int ten;
-
-                if (strcmp(ffile[map+1],ffile[last]) != 0)
-                  { ten = strlen(ffile[map+1]);
-                    if (flnmax < ten)
-                      flnmax = ten;
-                    flntot += ten;
-                    last = map+1;
-                  }
-                if (!DOHDR || DAM)
-                  map += 1;
-              }
-
-            if (DOHDR)
-              { int ten;
-
-                if (DAM)
-                  { char header[MAX_NAME];
-
-                    FSEEKO(hdrs,r->coff,SEEK_SET)
-                    FGETS(header,MAX_NAME,hdrs)
-                    header[strlen(header)-1] = '\0';
-                    ten = strlen(header);
-
-                    if (hdrmax < ten)
-                      hdrmax = ten;
-                    hdrtot += ten;
-                  }
-                else if (i >= findx[map])
-                  { map += 1;
-                    ten = strlen(fhead[map]);
-
-                    if (hdrmax < ten)
-                      hdrmax = ten;
-                    hdrtot += ten;
-                  }
-              }
-
-            for (m = 0; m < MTOP; m++)
-              { ten = MTRACK[m]->alen[i];
-                if (ten > trkmax[m])
-                  trkmax[m] = ten;
-                trktot[m] += ten;
-              }
-
-            if (substr)
-              { fst = iter->beg;
-                lst = iter->end;
-                if (DOIQV)
-                  { fprintf(stderr,"%s: Cannot select subreads when -i is requested\n",Prog_Name);
-                    exit (1);
-                  }
-              }
-            else
-              { fst = 0;
-                lst = len;
-              }
-
-            if (DOSEQ | DOQVS | DOARW)
-              { int ten = lst-fst;
-                if (ten > seqmax)
-                  seqmax = ten;
-                seqtot += ten;
-              }
-            if (DOIQV)
-              { int ten = qv_track->alen[i];
-                if (ten > iqvmax)
-                  iqvmax = ten;
-                iqvtot += ten;
-              }
-          }
-      }
-
-    PRINTF("+ R %lld\n",noreads)
-    PRINTF("+ M %d\n",MTOP)
-    if (DOHDR)
-      { PRINTF("+ H %lld\n",hdrtot)
-        PRINTF("@ H %lld\n",hdrmax)
-      }
-    for (m = 0; m < MTOP; m++)
-      { PRINTF("+ T%d %lld\n",m,trktot[m])
-        PRINTF("@ T%d %lld %ld %s\n",m,trkmax[m],strlen(MASK[m]),MASK[m])
-      }
-    if (DOSEQ | DOQVS | DOARW)
-      { PRINTF("+ S %lld\n",seqtot)
-        PRINTF("@ S %lld\n",seqmax)
-      }
-    if (DOIQV)
-      { PRINTF("+ I %lld\n",iqvtot)
-        PRINTF("@ I %lld\n",iqvmax)
-      }
-    if (DOFLN)
-      { PRINTF("+ F %lld\n",flntot)
-        PRINTF("@ F %lld\n",flnmax)
-      }
-  }
+  schema = oneSchemaCreateFromText(One_Schema);
+  file1  = oneFileOpenWriteNew("-",schema,"daz",true,1);
+  oneWriteHeader(file1);
 
   //  Display each read (and/or QV streams) in the active DB according to the
   //    range pairs in pts[0..reps) and according to the display options.
@@ -652,7 +484,7 @@ int main(int argc, char *argv[])
     int         c, b, e, i, m;
     int         substr;
     int         map, last;
-    char        qvname[5] = { 'd', 'c', 'i', 'm', 's' };
+    char        qvname[5] = { 'D', 'C', 'I', 'M', 'S' };
 
     read  = New_Read_Buffer(db);
     if (DOQVS)
@@ -673,6 +505,11 @@ int main(int argc, char *argv[])
       iter = init_file_iterator(input);
     else
       iter = NULL;
+
+    for (i = 0; i < MTOP; i++)
+      { oneInt(file1,0) = i;
+        oneWriteLine(file1,'X',strlen(MASK[i]),MASK[i]);
+      }
 
     c = 0;
     while (1)
@@ -710,74 +547,8 @@ int main(int argc, char *argv[])
 
             r   = reads + i;
             len = r->rlen;
-            if (DORED)
-              printf("R %d\n",FirstRead + (i+1));
-
             flags = r->flags;
             qv    = (flags & DB_QV);
-
-            if (DOFLN && i >= findx[map])
-              { if (strcmp(ffile[map+1],ffile[last]) != 0)
-                  { PRINTF("F %ld %s\n",strlen(ffile[map+1]),ffile[map+1])
-                    last = map+1;
-                  }
-                if (!DOHDR || DAM)
-                  map += 1;
-              }
-
-            if (DOHDR)
-              { if (DAM)
-                  { char header[MAX_NAME];
-
-                    FSEEKO(hdrs,r->coff,SEEK_SET)
-                    FGETS(header,MAX_NAME,hdrs)
-                    header[strlen(header)-1] = '\0';
-                    PRINTF("H %ld %s\n",strlen(header),header)
-                    PRINTF("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len)
-                  }
-                else
-                  { if (i >= findx[map])
-                      { map += 1;
-                        PRINTF("H %ld %s\n",strlen(fhead[map]),fhead[map])
-                      }
-                    PRINTF("L %d %d %d\n",r->origin,r->fpulse,r->fpulse+len)
-                    if (Quiva_DB && qv > 0)
-                      PRINTF("Q %d\n",qv)
-                    else if (Arrow_DB)
-                      { int   j, snr[4];
-                        int64 big;
-
-                        big = *((uint64 *) &(r->coff));
-                        for (j = 0; j < 4; j++)
-                          { snr[3-j] = (big & 0xffff);
-                            big    >>= 16;
-                          }
-                        PRINTF("N %d %d %d %d\n",snr[0],snr[1],snr[2],snr[3])
-                      }
-                  }
-              }
-
-            if (DOQVS)
-              Load_QVentry(db,i,entry,UPPER);
-            if (DOSEQ)
-              Load_Read(db,i,read,UPPER);
-            if (DOARW)
-              Load_Arrow(db,i,arrow,1);
-
-            for (m = 0; m < MTOP; m++)
-              { int   *d;
-                int64  f, j;
-
-                d = MDATA[m];
-                f = (Load_Track_Data(MTRACK[m],i,d) >> 2);
-
-                PRINTF("T%d %lld",m,f/2)
-                if (f > 0)
-                  { for (j = 0; j < f; j += 2)
-                      PRINTF(" %d %d",d[j],d[j+1])
-                  }
-                PRINTF("\n")
-              }
 
             if (substr)
               { fst = iter->beg;
@@ -788,41 +559,96 @@ int main(int argc, char *argv[])
                 lst = len;
               }
 
-            if (DOSEQ)
-              { PRINTF("S %d ",lst-fst)
-                PRINTF("%.*s\n",lst-fst,read+fst)
+            if (DOFLN && i >= findx[map])
+              { if (strcmp(ffile[map+1],ffile[last]) != 0)
+                  { oneInt(file1,0) = 0;
+                    oneWriteLine(file1,'f',strlen(ffile[map+1]),ffile[map+1]);
+                    last = map+1;
+                  }
+                if (!DOHDR || DAM)
+                  map += 1;
+              }
+
+            Load_Read(db,i,read,1);
+
+            oneInt(file1,0) = FirstRead + (i+1);
+            oneWriteLine(file1,'R',lst-fst,read+fst);
+
+            if (DOHDR)
+              { if (DAM)
+                  { char header[MAX_NAME];
+
+                    FSEEKO(hdrs,r->coff,SEEK_SET)
+                    FGETS(header,MAX_NAME,hdrs)
+                    header[strlen(header)-1] = '\0';
+                    oneWriteLine(file1,'H',strlen(header),header);
+                  }
+                else
+                  { if (i >= findx[map])
+                      { map += 1;
+                        oneWriteLine(file1,'H',strlen(fhead[map]),fhead[map]);
+                      }
+                  }
+              }
+
+            if (DOWEL)
+              { oneInt(file1,0) = r->origin;
+                oneInt(file1,1) = r->fpulse;
+                oneInt(file1,2) = r->fpulse+len;
+                oneWriteLine(file1,'W',0,NULL);
+                if (Quiva_DB && qv > 0)
+                  { oneInt(file1,0) = qv;
+                    oneWriteLine(file1,'Q',0,NULL);
+                  }
+                else if (Arrow_DB)
+                  { int   j, snr[4];
+                    int64 big;
+
+                    big = *((uint64 *) &(r->coff));
+                    for (j = 0; j < 4; j++)
+                      { snr[3-j] = (big & 0xffff);
+                        big    >>= 16;
+                      }
+                    oneInt(file1,0) = snr[0];
+                    oneInt(file1,1) = snr[1];
+                    oneInt(file1,2) = snr[2];
+                    oneInt(file1,3) = snr[3];
+                    oneWriteLine(file1,'N',0,NULL);
+                  }
+              }
+
+            for (m = 0; m < MTOP; m++)
+              { int   *d, j;
+                int64  f;
+
+                d = MDATA[m];
+                f = (Load_Track_Data(MTRACK[m],i,d) >> 2);
+
+                for (j = 0; j < f; j++)
+                  MBUFFER[j] = d[j];
+
+                oneInt(file1,0) = m;
+                oneWriteLine(file1,'T',f,MBUFFER);
               }
 
             if (DOARW)
-              { PRINTF("A %d ",lst-fst)
-                PRINTF("%.*s\n",lst-fst,arrow+fst)
-              }
-
-            if (DOIQV)
-              { int j, f;
-
-                f = Load_Track_Data(qv_track,i,qv_data);
-                PRINTF("I %d ",f)
-                for (j = 0; j < f; j++)
-                  { if (putchar(qv_map[qv_data[j]]) == EOF)
-                      SYSTEM_WRITE_ERROR
-                  }
-                PRINTF("\n")
+              { Load_Arrow(db,i,arrow,1);
+                oneWriteLine(file1,'A',lst-fst,arrow+fst);
               }
 
             if (DOQVS)
               { int k;
 
+                Load_QVentry(db,i,entry,1);
                 for (k = 0; k < 5; k++)
-                  { PRINTF("%c %d ",qvname[k],lst-fst)
-                    PRINTF("%.*s\n",lst-fst,entry[k]+fst)
-                  }
+                  oneWriteLine(file1,qvname[k],lst-fst,entry[k]+fst);
               }
           }
       }
   }
 
-  FCLOSE(stdout)
+  oneFileClose(file1);
+  oneSchemaDestroy(schema);
 
   if (input_pts)
     { fclose(input);

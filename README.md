@@ -369,90 +369,80 @@ fasta2DB, quiva2D, and arrow2DB, giving one a simple way to make a DB of a subse
 the reads for testing purposes.
 
 ```
-14. DBdump [-rhsaqif] [-uU] [-m<mask>]+
+14. DB2ONE [-u] [-aqhwf] [-m<mask>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
 ```
 
-Like DBshow, DBdump allows one to display a subset of the reads in the DB and select
-which information to show including any mask tracks.  The difference is
-that the information is written in a very simple "1-code" ASCII format that makes it
-easy for one to read and parse the information for further use.  The option flags determine
-which items of information are output as follows:
+DB2ONE produces a .daz 1-code data file of all or a portion  of the contents of a Dazzler
+data base.
+[1-code](https://www.github.com/thegenemyers/ONE-Code)
+is a powerful self-describing, simple to use, data system with built in compression.
 
-* -r requests that each read number be displayed in an R-line (see below, useful if only a
-subset of reads is requested).
+By default all the read records in the trimmed database are considered, but if the -u option is
+set then all reads in the db are taken.
+Also like DBshow a file or index ranges given after the database argument can be used to specify a specific subset of the reads in the data base to output.
 
-* -h requests the header information be output as the source file name on an H-line, the
- If the -d option is set then every block track is removed after the successful construction of the combined track.well # and pulse range on an L-line, and optionally the quality of the read if given on a Q-line.
+By default DB2ONE outputs a read's database ordinal index and its DNA sequence.
+If the database contains Arrow information, then the -a option specifies that a truncated arrow
+quality vector should also be output.  If the database contains Quiver information, then the -q
+option specifies that the 5 Quiver quality vectors be output.
+If the -h option is set then the original fasta/q header for the read is output.
+If the -f option is set then the read objects are grouped by the source file from which they originally came, where the name of the file for each group is output.
+If the -w option is set then the well, pulse start and end, and additional details are output.
+Finally if the db has *mask* tracks then these can be selected for output as list of start-end pairs.
 
-* -s requests the sequence be output on an S-line.
-
-* -a requests the Arrow information be output as a pulse-width string on an A-line and
-the 4 SNR channel values on an N-line,
-
-* -q requests that the 5 Quiver quality streams be output on d-, c-, i-, m-, and s-lines.
-
-* -i requests that the intrinsic quality values be output on an I-line.
-
-* -f requests the source file name is output just before the first read data in the file on a F-line.
-
-* -m\<track\> requests that mask \<track\> be output on a T-line.
-
-Set -u if you want data from the untrimmed database (the default is trimmed) and
-set -U if you'd like upper-case letter used in the DNA sequence strings.
-
-The format is very simple.  A requested unit of information occurs on a line.  The
-first character of every line is a "1-code" character that tells you what information
-to expect on the line.  The rest of the line contains the information where each item is
-separated by a single blank space.  Strings are output as first an integer giving the
-length of the string, a blank space, and then the string terminated by a new-line.
-Intrinsic quality values are between 0 and 50, inclusive, and a vector of said are
-displayed as an alphabetic string where 'a' is 0, 'b' is '1', ... 'z' is 25, 'A' is
-26, 'B' is 27, ... and 'Y' is 50.
-The set of all possible lines is as follows:
+The .daz format is quite simple where the primary object is considered to be a sequence and
+its read index.
+The encoding for additional data for a read is in the ensuing lines in 1-code format,
+where each line type is designated by the first character in the line.
+The R-line designated the start of a read object and consists of giving the
+read's index in the db and the read's sequence.
 
 ```
-    R #              - read number
-    H # string       - original file name string (header)
-    L # # #          - location: well, pulse start, pulse end
-    Q #              - quality of read (#/1000)
-    N # # # #        - SNR of ACGT channels (#/100)
-    Tx #n (#b #e)^#n - x'th track on command line, #n intervals all on same line
-    S # string       - sequence string
-    A # string       - arrow pulse-width string
-    I # string       - intrinsic quality vector (as an ASCII string)
-    F # string       - name of source file of following data
-    d # string       - Quiva deletion values (as an ASCII string)
-    c # string       - Quiva deletion character string
-    i # string       - Quiva insertion value string
-    m # string       - Quiva merge value string
-    s # string       - Quiva substitution value string
-    + X #            - Total amount of X (X = H or S or I or F or R or M or T#)
-    @ X #            - Maximum amount of X (X = H or S or I or F or T#)
+    R <read-index: int> <read seq: DNA>
 ```
-
-1-code lines that begin with + or @ are always the first lines in the output.  They
-give size information about what is contained in the output.  That is '+ X #' gives
-the number of reads (X=R), the number of masks (X=M), or the total number of
-characters in all headers (X=H), sequences (X=S), intrinsic quality vectors (X=I),
-file names (X=F), or track (X=T#).  And '@ X #' gives the maximum number of
-characters in any header (X=H), sequence (X=S), intrincic quality vector (X=I),
-names (X=F), or track (X=T#).  The size numbers for the Quiva strings and
-Arrow pulse width strings are identical to that for the sequence as they are all of
-the same length for any given entry.
+If the -a flag is set and the database has Arrow information (i.e. it is an A-DB), then DB2ONE also outputs a 1-code A-line containing a truncated vector of the pulse widths for each base of the reads in the range 1-4.
+If the -q flag is set and the database has Quiver information (i.e. it is a Q-DB), then DB2ONE
+outputs five 1-code lindes containing the Quiver odds vectors as indicated in the syntax below.
 
 ```
-15a. DBa2b
-15b. DBb2a
+    A <arrow vals: string over [1234]>
+
+    D <Quiva deletion vector: string>
+    C <Quiva deletion characters: DNA string>
+    I <Quiva insertion vector: string>
+    M <Quiva merge vector: string>
+    S <Quiva substitution vector: string>
+```
+If the -h flag is set, then DB2ONE outputs a H line giving
+the fasta header line that was associated with each read on input.
+If the -w flag is set, then DB2ONE outputs a W line giving the well number and pulse start and end.  Furthermore, if the db is an A-DB then an N line containing the SNR for each channel for
+that well is output, and if the db is a Q-DB then a Q line is output giving an estimate of the
+error rate of the read based on the Quiver vectors.
+Finally, if the -f flag is output, then the output is grouped by original source file where
+each group begins with an f line giving the name of the file and the number of reads from that
+file.
+
+```
+    H <fasta header: string>
+
+    W <well: int> <pulse start: int> <pulse end: int>
+    N <SNR A-channel> <SNR C-channel> <SNR G-channel> <SNR T-channel>
+    Q <read quality value: int>
+        
+    f <file name: string>
+```
+Lastly, for each -m option specifying a *mask* track name, a T-line is output that first indicates which mask it is for and then contains an integer list of interval begin-end pairs.
+In addition, at the start of the data section, one X line is output per mask track giving
+the mapping between the track index and its name as it appeared in the -m option.
+
+```
+    T <track idx: int> <intervals: int_list>
+    X <track idx: int> <name: string>
 ```
 
-Pipes (stdin to stdout) that convert an ASCII output produced by DBdump into a compressed
-binary representation (DBa2b) and vice verse (DBb2a).  The idea is to save disk space by
-keeping the dumps in a more compessed format.
-
-
 ```
-16. DBstats [-nu] [-b<int(1000)] [-m<mask>]+ <path:db|dam>
+15. DBstats [-nu] [-b<int(1000)] [-m<mask>]+ <path:db|dam>
 ```
 
 Show overview statistics for all the reads in the trimmed data base \<path\>.db or
@@ -464,7 +454,7 @@ intervals along the read can be specified with the -m option in which case a sum
 and a histogram of the interval lengths is displayed.
 
 ```
-17. DBrm [-vnf] <path:db|dam> ...
+16. DBrm [-vnf] <path:db|dam> ...
 ```
 
 Delete all the files for the given data bases.  Do not use rm to remove a database, as
@@ -474,7 +464,7 @@ If the -v option is set then every file deleted is listed.
 The -n, and -f options are as for the UNIX "rm" command.
 
 ```
-18. DBmv [-vinf] <old:db|dam> <new:db|dam|dir>
+17. DBmv [-vinf] <old:db|dam> <new:db|dam|dir>
 ```
 
 If \<new> is a directory then all the files for \<old> are moved
@@ -483,7 +473,7 @@ If the -v option is set then every file move is displayed.
 The -i, -n, and -f options are as for the UNIX "mv" command.
 
 ```
-19. DBcp [-vinf] <old:db|dam> <new:db|dam|dir>
+18. DBcp [-vinf] <old:db|dam> <new:db|dam|dir>
 ```
 
 If \<new> is a directory then all the files for \<old> are copied
@@ -492,7 +482,7 @@ If the -v option is set then every file move is displayed.
 The -i, -n, and -f options are as for the UNIX "cp" command.
 
 ```
-20. DBwipe <path:db|dam>
+19. DBwipe <path:db|dam>
 ```
 
 Delete any Arrow or Quiver data from the given databases.  This removes the .arw or
@@ -500,7 +490,7 @@ Delete any Arrow or Quiver data from the given databases.  This removes the .arw
 or Quiver.  Basically, converts an A-DB or Q-DB back to a simple S-DB.
 
 ```
-21.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
+20.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
                                   [-w<int(80)>] [-r<int>] [-M<file>]
 ```
@@ -535,7 +525,7 @@ a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in t
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
 ```
-22. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
+21. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
 ```
 
 Generate a random DNA sequence of length genlen*1Mbp that has an AT-bias of -b.
