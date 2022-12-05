@@ -474,7 +474,6 @@ int main(int argc, char *argv[])
 
   schema = oneSchemaCreateFromText(One_Schema);
   file1  = oneFileOpenWriteNew("-",schema,"daz",true,1);
-  oneWriteHeader(file1);
 
   //  Display each read (and/or QV streams) in the active DB according to the
   //    range pairs in pts[0..reps) and according to the display options.
