@@ -375,12 +375,12 @@ the reads for testing purposes.
 
 DB2ONE produces a .daz 1-code data file of all or a portion  of the contents of a Dazzler
 data base.
-[1-code](https://www.github.com/thegenemyers/ONE-Code)
+[1-code](https://www.github.com/thegenemyers/ONEcode)
 is a powerful self-describing, simple to use, data system with built in compression.
 
 By default all the read records in the trimmed database are considered, but if the -u option is
-set then all reads in the db are taken.
-Also like DBshow a file or index ranges given after the database argument can be used to specify a specific subset of the reads in the data base to output.
+set then all reads in the database are taken.
+Also like DBshow a file or index ranges given after the database argument can be used to specify a specific subset of the reads in the database to output.
 
 By default DB2ONE outputs a read's database ordinal index and its DNA sequence.
 If the database contains Arrow information, then the -a option specifies that a truncated arrow
@@ -389,7 +389,7 @@ option specifies that the 5 Quiver quality vectors be output.
 If the -h option is set then the original fasta/q header for the read is output.
 If the -f option is set then the read objects are grouped by the source file from which they originally came, where the name of the file for each group is output.
 If the -w option is set then the well, pulse start and end, and additional details are output.
-Finally if the db has *mask* tracks then these can be selected for output as list of start-end pairs.
+Finally if the database has *mask* tracks then these can be selected for output as lists of start-end pairs.
 
 The .daz format is quite simple where the primary object is considered to be a sequence and
 its read index.
@@ -401,9 +401,9 @@ read's index in the db and the read's sequence.
 ```
     R <read-index: int> <read seq: DNA>
 ```
-If the -a flag is set and the database has Arrow information (i.e. it is an A-DB), then DB2ONE also outputs a 1-code A-line containing a truncated vector of the pulse widths for each base of the reads in the range 1-4.
+If the -a flag is set and the database has Arrow information (i.e. it is an A-DB), then DB2ONE also outputs a 1-code A-line containing a truncated vector of the pulse widths for each base of the read in the range 1-4.
 If the -q flag is set and the database has Quiver information (i.e. it is a Q-DB), then DB2ONE
-outputs five 1-code lindes containing the Quiver odds vectors as indicated in the syntax below.
+outputs five 1-code lines containing the Quiver odds vectors as indicated in the syntax below.
 
 ```
     A <arrow vals: string over [1234]>
@@ -414,12 +414,12 @@ outputs five 1-code lindes containing the Quiver odds vectors as indicated in th
     M <Quiva merge vector: string>
     S <Quiva substitution vector: string>
 ```
-If the -h flag is set, then DB2ONE outputs a H line giving
+If the -h flag is set, then DB2ONE outputs an H line giving
 the fasta header line that was associated with each read on input.
-If the -w flag is set, then DB2ONE outputs a W line giving the well number and pulse start and end.  Furthermore, if the db is an A-DB then an N line containing the SNR for each channel for
-that well is output, and if the db is a Q-DB then a Q line is output giving an estimate of the
+If the -w flag is set, then DB2ONE outputs a W line giving the well number and pulse start and end.  Furthermore, if the database is an A-DB then an N line containing the SNR for each channel for
+that well is output, and if the database is a Q-DB then a Q line is output giving an estimate of the
 error rate of the read based on the Quiver vectors.
-Finally, if the -f flag is output, then the output is grouped by original source file where
+Finally, if the -f flag is output, then the output is grouped by original source files where
 each group begins with an f line giving the name of the file and the number of reads from that
 file.
 
@@ -430,7 +430,7 @@ file.
     N <SNR A-channel> <SNR C-channel> <SNR G-channel> <SNR T-channel>
     Q <read quality value: int>
         
-    f <file name: string>
+    f <count: int> <file name: string>
 ```
 Lastly, for each -m option specifying a *mask* track name, a T-line is output that first indicates which mask it is for and then contains an integer list of interval begin-end pairs.
 In addition, at the start of the data section, one X line is output per mask track giving
@@ -438,7 +438,7 @@ the mapping between the track index and its name as it appeared in the -m option
 
 ```
     T <track idx: int> <intervals: int_list>
-    X <track idx: int> <name: string>
+    X <track idx: int> <name: string>           //  Once in prolog for each track
 ```
 
 ```
