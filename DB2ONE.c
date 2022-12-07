@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
   OneSchema *schema;
   OneFile   *file1;
+  char      *command;
 
   int         nfiles;
   char      **fhead = NULL;
@@ -132,12 +133,32 @@ int main(int argc, char *argv[])
   int       **MDATA;
   int64      *MBUFFER;
 
-  //  Process arguments
+  //  Process arguments and capture command line for provenance
 
   { int  i, j, k;
     int  flags[128];
 
     ARG_INIT("DB2ONE")
+
+    { int   n, t;
+      char *c;
+
+      n = 0;
+      for (t = 1; t < argc; t++)
+        n += strlen(argv[t])+1;
+
+      command = Malloc(n+1,"Allocating command string");
+      if (command == NULL)
+        exit (1);
+
+      c = command;
+      if (argc >= 1)
+        { c += sprintf(c,"%s",argv[1]);
+          for (t = 2; t < argc; t++)
+            c += sprintf(c," %s",argv[t]);
+        }
+      *c = '\0';
+    }
 
     MTOP  = 0;
     MMAX  = 10;
@@ -474,6 +495,7 @@ int main(int argc, char *argv[])
 
   schema = oneSchemaCreateFromText(One_Schema);
   file1  = oneFileOpenWriteNew("-",schema,"daz",true,1);
+  oneAddProvenance(file1,Prog_Name,"1.0","%s >?.daz",command);
 
   //  Display each read (and/or QV streams) in the active DB according to the
   //    range pairs in pts[0..reps) and according to the display options.
@@ -661,6 +683,8 @@ int main(int argc, char *argv[])
   else
     Free_DB_Stub(stub);
   Close_DB(db);
+
+  free(command);
 
   exit (0);
 }
