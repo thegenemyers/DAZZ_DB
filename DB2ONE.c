@@ -27,28 +27,28 @@ static char *Usage[] =
     };
 
 static char *One_Schema =
-  "P 3 daz\n"
+  "P 3 daz                   This is a Dazzler DB 1-code file\n"
 
-  "G f 2 3 INT 6 STRING\n"    //  Source file reads came from
+  "G f 2 3 INT 6 STRING      Source file reads came from\n"
 
-  "O R 2 3 INT 6 STRING\n"    //  Read idx and string for read
+  "O R 2 3 INT 6 STRING      Read idx and string for read\n"
 
-  "D A 1 6 STRING\n"          //       Arrow pulse widths
+  "D A 1 6 STRING                 Arrow pulse widths\n"
 
-  "D D 1 6 STRING\n"          //       Quiva del vals
-  "D C 1 6 STRING\n"          //       Quiva del char
-  "D I 1 6 STRING\n"          //       Quiva ins vals
-  "D M 1 6 STRING\n"          //       Quiva mrg vals
-  "D S 1 6 STRING\n"          //       Quiva sub vals
+  "D D 1 6 STRING                 Quiva del vals\n"
+  "D C 1 6 STRING                 Quiva del char\n"
+  "D I 1 6 STRING                 Quiva ins vals\n"
+  "D M 1 6 STRING                 Quiva mrg vals\n"
+  "D S 1 6 STRING                 Quiva sub vals\n"
 
-  "D H 1 6 STRING\n"          //       Original fasta/q header
+  "D H 1 6 STRING                 Original fasta/q header\n"
 
-  "D W 3 3 INT 3 INT 3 INT\n"         //  well, pulse start, pulse end
-  "D N 4 3 INT 3 INT 3 INT 3 INT\n"   //     SNR of ACGT channels (if Arrow-DB)
-  "D Q 1 3 INT\n"                     //     read quality (if Quiva-DB)
+  "D W 3 3 INT 3 INT 3 INT           well, pulse start, pulse end\n"
+  "D N 4 3 INT 3 INT 3 INT 3 INT        SNR of ACGT channels (if Arrow-DB)\n"
+  "D Q 1 3 INT                          read quality (if Quiva-DB)\n"
 
-  "D X 2 3 INT 6 STRING\n"     //       Prolog: name of track idx
-  "D T 2 3 INT 8 INT_LIST\n";  //       Track idx, interval pairs list
+  "D X 2 3 INT 6 STRING            Prolog: name of track idx\n"
+  "D T 2 3 INT 8 INT_LIST          Track idx, interval pairs list\n";
 
 
 #define LAST_READ_SYMBOL   '$'
