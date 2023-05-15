@@ -142,6 +142,7 @@ a command such as DBshow.
 All programs add suffixes (e.g. .db) as needed.  The commands of the database library
 are currently as follows:
 
+<a name="fasta2DB"></a>
 ```
 1. fasta2DB [-v] <path:db> ( -f<file> | -i[<name>] | <input:fasta> ... )
 ```
@@ -166,6 +167,7 @@ partitioning of the database is updated to include the new data.  A file may con
 the data from multiple SMRT cells provided the reads for each SMRT cell are consecutive
 in the file.
 
+<a name="DB2fasta"></a>
 ```
 2. DB2fasta [-vU] [-w<int(80)>] <path:db>
 ```
@@ -180,6 +182,7 @@ By default the output sequences are in lower case and 80 chars per line.  The -U
 specifies upper case should be used, and the characters per line, or line width, can be
 set to any positive value with the -w option.
 
+<a name="quiva2DB"></a>
 ```
 3. quiva2DB [-vl] <path:db> ( -f<file> | -i | <input:quiva> ... )
 ```
@@ -194,6 +197,7 @@ FOO.quiva.  This is enforced by the program. With the -l option
 set the compression scheme is a bit lossy to get more compression (see the description
 of dexqv in the DEXTRACTOR module here).
 
+<a name="DB2quiva"></a>
 ```
 4. DB2quiva [-vU] <path:db>
 ```
@@ -208,6 +212,7 @@ By .fastq convention each QV vector is output as a line without new-lines, and b
 default the Deletion Tag entry is in lower case letters.  The -U option specifies
 upper case letters should be used instead.
 
+<a name="arrow2DB"></a>
 ```
 5. arrow2DB [-v] <path:db> ( -f<file> | -i | <input:arrow> ... )
 ```
@@ -220,6 +225,7 @@ incrementally but must be added in the
 same order as the .fasta files were and have the same root names, e.g. FOO.fasta and
 FOO.quiva.  This is enforced by the program.
 
+<a name="DB2arrow"></a>
 ```
 6. DB2arrow [-v] [-w<int(80)>] <path:db>
 ```
@@ -234,6 +240,7 @@ By default the output sequences are formatted 80 chars per line,
 but the characters per line, or line width, can be
 set to any positive value with the -w option.
 
+<a name="fasta2DAM"></a>
 ```
 7. fasta2DAM [-v] <path:dam> ( -f<file> | -i[<name>] | <input:fasta> ... )
 ```
@@ -248,6 +255,7 @@ entry that has a run of N's in it will be split into separate "contig" entries a
 interval of the contig in the original entry recorded. The header for each .fasta entry
 is saved with the contigs created from it.
 
+<a name="DAM2fasta"></a>
 ```
 8. DAM2fasta [-vU] [-w<int(80)>] <path:dam>
 ```
@@ -262,6 +270,7 @@ sequences are in lower case and 80 chars per line. The -U option specifies upper
 should be used, and the characters per line, or line width, can be set to any positive
 value with the -w option.
 
+<a name="DBsplit"></a>
 ```
 9. DBsplit [-aflm] [-x<int>] [-s<double(200.)>] <path:db|dam>
 ```
@@ -288,6 +297,7 @@ primary read instead.  One can at any later time change this back to the default
 by splitting again with the -l parameter set.  The setting of the primary reads occurs
 regardless of whether the -a parameter is set or not.
 
+<a name="DBtrim"></a>
 ```
 10. DBtrim [-af] [-x<int>] <path:db|dam>
 ```
@@ -295,6 +305,7 @@ regardless of whether the -a parameter is set or not.
 Exactly like DBsplit except that it only resets the trimming parameters (and not the split
 partition itself).
 
+<a name="DBdust"></a>
 ```
 11. DBdust [-b] [-w<int(64)>] [-t<double(2.)>] [-m<int(10)>] <path:db|dam>
 ```
@@ -316,6 +327,7 @@ and .FOO.3.dust.data, given FOO.3 on the command line.  We call this a *block tr
 This permits job parallelism in block-sized chunks, and the resulting sequence of
 block tracks can then be merged into a track for the entire untrimmed DB with Catrack.
 
+<a name="Catrack"></a>
 ```
 12. Catrack [-vfd] <path:db|dam> <track:name> ...
 ```
@@ -329,6 +341,7 @@ concatenation takes place regardless of whether or not the single, combined trac
 already exists or not.  If the -d option is set then every block track is removed after
 the successful construction of the combined track.
 
+<a name="DBshow"></a>
 ```
 13. DBshow [-unqaUQA] [-w<int(80)>] [-m<mask>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
@@ -368,6 +381,7 @@ The .fasta, .quiva, and .arrow files that are output can be used to build a new 
 fasta2DB, quiva2D, and arrow2DB, giving one a simple way to make a DB of a subset of
 the reads for testing purposes.
 
+<a name="DB2ONE"></a>
 ```
 14. DB2ONE [-u] [-aqhwf] [-m<mask>]+
                       <path:db|dam> [ <reads:FILE> | <reads:range> ... ]
@@ -416,9 +430,9 @@ outputs five 1-code lines containing the Quiver odds vectors as indicated in the
 ```
 If the -h flag is set, then DB2ONE outputs an H line giving
 the fasta header line that was associated with each read on input.
-If the -w flag is set, then DB2ONE outputs a W line giving the well number and pulse start and end.  Furthermore, if the database is an A-DB then an N line containing the SNR for each channel for
-that well is output, and if the database is a Q-DB then a Q line is output giving an estimate of the
-error rate of the read based on the Quiver vectors.
+If the -w flag is set, then for a .db database DB2ONE outputs a W line giving the well number and pulse start and end.  Furthermore, if the database is an A-DB then an N line containing the SNR for each channel for that well is output, and if the database is a Q-DB then a Q line is output giving an estimate of the error rate of the read based on the Quiver vectors.
+On the other hand if the database is a .dam, then DB2ONE outputs a G line in response to the
+-w flag, which gives the contig # within a .fasta scaffold and the first and last base positions in the fasta file entry from which the contig was extracted.
 Finally, if the -f flag is output, then the output is grouped by original source files where
 each group begins with an f line giving the name of the file and the number of reads from that
 file.
@@ -429,7 +443,9 @@ file.
     W <well: int> <pulse start: int> <pulse end: int>
     N <SNR A-channel> <SNR C-channel> <SNR G-channel> <SNR T-channel>
     Q <read quality value: int>
-        
+ 
+    G <contig int> <first bp: int> <last bp: int>
+       
     f <count: int> <file name: string>
 ```
 Lastly, for each -m option specifying a *mask* track name, a T-line is output that first indicates which mask it is for and then contains an integer list of interval begin-end pairs.
@@ -441,6 +457,7 @@ the mapping between the track index and its name as it appeared in the -m option
     X <track idx: int> <name: string>           //  Once in prolog for each track
 ```
 
+<a name="DBstats"></a>
 ```
 15. DBstats [-nu] [-b<int(1000)] [-m<mask>]+ <path:db|dam>
 ```
@@ -453,6 +470,7 @@ is not displayed.  Any track such as a "dust" track that gives a series of
 intervals along the read can be specified with the -m option in which case a summary
 and a histogram of the interval lengths is displayed.
 
+<a name="DBrm"></a>
 ```
 16. DBrm [-vnf] <path:db|dam> ...
 ```
@@ -463,6 +481,7 @@ files, and all of these are removed by DBrm.
 If the -v option is set then every file deleted is listed.
 The -n, and -f options are as for the UNIX "rm" command.
 
+<a name="DBmv"></a>
 ```
 17. DBmv [-vinf] <old:db|dam> <new:db|dam|dir>
 ```
@@ -472,6 +491,7 @@ to the diretory, otherwise, all the files for \<old> are renamed to the given ta
 If the -v option is set then every file move is displayed.
 The -i, -n, and -f options are as for the UNIX "mv" command.
 
+<a name="DBcp"></a>
 ```
 18. DBcp [-vinf] <old:db|dam> <new:db|dam|dir>
 ```
@@ -481,6 +501,7 @@ to the diretory, otherwise, a copy of all the files for \<old> are created with 
 If the -v option is set then every file move is displayed.
 The -i, -n, and -f options are as for the UNIX "cp" command.
 
+<a name="DBwipe"></a>
 ```
 19. DBwipe <path:db|dam>
 ```
@@ -489,6 +510,7 @@ Delete any Arrow or Quiver data from the given databases.  This removes the .arw
 .qvs file and resets information in the .idx file containing information for Arrow
 or Quiver.  Basically, converts an A-DB or Q-DB back to a simple S-DB.
 
+<a name="simulator"></a>
 ```
 20.  simulator <genome:dam> [-CU] [-m<int(10000)>] [-s<int(2000)>] [-e<double(.15)]
                                   [-c<double(50.)>] [-f<double(.5)>] [-x<int(4000)>]
@@ -524,6 +546,7 @@ an assembly and is very useful for debugging and testing purposes. If the map li
 a read is say 's b e' then if b \< e the read is a perturbed copy of s[b,e] in the
 forward direction, and a perturbed copy s[e,b] in the reverse direction otherwise.
 
+<a name="rangen"></a>
 ```
 21. rangen <genlen:double> [-U] [-b<double(.5)>] [-w<int(80)>] [-r<int>]
 ```

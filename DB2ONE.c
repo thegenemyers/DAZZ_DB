@@ -43,9 +43,11 @@ static char *One_Schema =
 
   "D H 1 6 STRING                 Original fasta/q header\n"
 
-  "D W 3 3 INT 3 INT 3 INT           well, pulse start, pulse end\n"
+  "D W 3 3 INT 3 INT 3 INT           well, pulse start, pulse end (for db's)\n"
   "D N 4 3 INT 3 INT 3 INT 3 INT        SNR of ACGT channels (if Arrow-DB)\n"
   "D Q 1 3 INT                          read quality (if Quiva-DB)\n"
+
+  "D G 3 3 INT 3 INT 3 INT           contig, firstbp, lastbp (for dam's)\n"
 
   "D X 2 3 INT 6 STRING            Prolog: name of track idx\n"
   "D T 2 3 INT 8 INT_LIST          Track idx, interval pairs list\n";
@@ -204,9 +206,10 @@ int main(int argc, char *argv[])
         fprintf(stderr,"      -a: Output truncated arrow pulse-width string (A line)\n");
         fprintf(stderr,"      -q: Quiver edit vectors (D, C, I, M, and S lines)\n");
         fprintf(stderr,"      -h: Output fasta header prefix (H line)\n");
-        fprintf(stderr,"      -w: Output well, pulse start and end (W line)\n");
+        fprintf(stderr,"      -w: Output well, pulse start and end (if .db, W line)\n");
         fprintf(stderr,"            + SNR of ACGT channels (if Arrow DB, N line)\n");
         fprintf(stderr,"            + quality value of read (if Quiver DB, Q line)\n");
+        fprintf(stderr,"      -w: Contig, firstbp, and lastbp (if .dam, G line)\n");
         fprintf(stderr,"\n");
         fprintf(stderr,"      -f: group by origin file (f line)\n");
         fprintf(stderr,"\n");
@@ -616,7 +619,10 @@ int main(int argc, char *argv[])
               { oneInt(file1,0) = r->origin;
                 oneInt(file1,1) = r->fpulse;
                 oneInt(file1,2) = r->fpulse+len;
-                oneWriteLine(file1,'W',0,NULL);
+                if (DAM)
+                  oneWriteLine(file1,'G',0,NULL);
+                else
+                  oneWriteLine(file1,'W',0,NULL);
                 if (Quiva_DB && qv > 0)
                   { oneInt(file1,0) = qv;
                     oneWriteLine(file1,'Q',0,NULL);
