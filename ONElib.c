@@ -32,7 +32,7 @@
 #ifdef DEBUG
 #include <assert.h>
 #else
-#define assert(x) 0
+#define assert(x)
 #endif
 
 #include "ONElib.h"
@@ -390,9 +390,10 @@ static OneSchema *oneSchemaCreateDynamic (char *fileType, char *subType)
   assert (fileType && strlen(fileType) > 0) ;
   assert (!subType || strlen(subType) > 0) ;
   if (subType)
-    sprintf (text, "P %ld %s\nS %ld %s\n", strlen(fileType),fileType, strlen(subType), subType) ;
+    sprintf (text, "P %d %s\nS %d %s\n", (int) strlen(fileType),fileType,
+                                         (int) strlen(subType), subType) ;
   else
-    sprintf (text, "P %ld %s\n", strlen(fileType), fileType) ;
+    sprintf (text, "P %d %s\n", (int) strlen(fileType), fileType) ;
   OneSchema *vs = oneSchemaCreateFromText (text) ;
   return vs ;
 }
@@ -3485,7 +3486,7 @@ static inline int intGet (unsigned char *u, I64 *pval)
     case 0:
       switch (u[0] & 0x07)
 	{
-	case 0: die ("int packing error") ;
+	case 0: die ("int packing error") ; break ;
 	case 1: *pval = *(I64*)(u+1) & 0x0000000000ffff ; return 3 ;
 	case 2: *pval = *(I64*)(u+1) & 0x00000000ffffff ; return 4 ;
 	case 3: *pval = *(I64*)(u+1) & 0x000000ffffffff ; return 5 ;
@@ -3497,7 +3498,7 @@ static inline int intGet (unsigned char *u, I64 *pval)
     case 4:
       switch (u[0] & 0x07)
 	{
-	case 0: die ("int packing error") ;
+	case 0: die ("int packing error") ; break ;
 	case 1: *pval = *(I64*)(u+1) | 0xffffffffffff0000 ; return 3 ;
 	case 2: *pval = *(I64*)(u+1) | 0xffffffffff000000 ; return 4 ;
 	case 3: *pval = *(I64*)(u+1) | 0xffffffff00000000 ; return 5 ;

@@ -358,8 +358,12 @@ int main(int argc, char *argv[])
 
             path  = PathTo(ng->name);
             core  = Root(ng->name,".fasta");
-            if ((input = Fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
-              goto error;
+            if ((input = fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
+              { free(core);
+                core = Root(ng->name,".fa");
+                if ((input = fopen(Catenate(path,"/",core,".fa"),"r")) == NULL)
+                  goto error;
+              }
             free(path);
           }
 
