@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 
     while (PIPE != NULL || next_file(ng))
       { FILE *input;
-        char *path, *core;
+        char *path, *core, *fname;
         int   nline, eof, rlen;
 
         //  Open it: <path>/<core>.fasta if file, stdin otherwise with core = PIPE or "stdout"
@@ -358,9 +358,12 @@ int main(int argc, char *argv[])
 
             path  = PathTo(ng->name);
             core  = Root(ng->name,".fasta");
+            fname = Strdup(Catenate(core,".fasta",NULL,NULL),"Allocating file name");
             if ((input = fopen(Catenate(path,"/",core,".fasta"),"r")) == NULL)
-              { free(core);
-                core = Root(ng->name,".fa");
+              { free(fname);
+                free(core);
+                core  = Root(ng->name,".fa");
+                fname = Strdup(Catenate(core,".fa",NULL,NULL),"Allocating file name");
                 if ((input = fopen(Catenate(path,"/",core,".fa"),"r")) == NULL)
                   goto error;
               }
@@ -394,8 +397,8 @@ int main(int argc, char *argv[])
                  (ofiles == 0 || strcmp(core,flist[ofiles-1]) != 0)))
             { for (j = 0; j < ofiles; j++)
                 if (strcmp(core,flist[j]) == 0)
-                  { fprintf(stderr,"%s: File %s.fasta is already in database %s.dam\n",
-                                   Prog_Name,core,Root(argv[1],".dam"));
+                  { fprintf(stderr,"%s: File %s is already in database %s.dam\n",
+                                   Prog_Name,fname,Root(argv[1],".dam"));
                     goto error;
                   }
             }
@@ -427,7 +430,7 @@ int main(int argc, char *argv[])
           { if (PIPE != NULL && PIPE[0] == '\0')
               fprintf(stderr,"Adding scaffolds from stdio ...\n");
             else
-              fprintf(stderr,"Adding '%s.fasta' ...\n",core);
+              fprintf(stderr,"Adding '%s' ...\n",fname);
             fflush(stderr);
           }
     
@@ -437,12 +440,12 @@ int main(int argc, char *argv[])
         // Check that the first line is a header line
 
         if (read[strlen(read)-1] != '\n')
-          { fprintf(stderr,"File %s.fasta, Line 1: Fasta line is too long (> %d chars)\n",
-                           core,MAX_NAME-2);
+          { fprintf(stderr,"File %s, Line 1: Fasta line is too long (> %d chars)\n",
+                           fname,MAX_NAME-2);
             goto error;
           }
         if (!eof && read[0] != '>')
-          { fprintf(stderr,"File %s.fasta, Line 1: First header in fasta file is missing\n",core);
+          { fprintf(stderr,"File %s, Line 1: First header in fasta file is missing\n",fname);
             goto error;
           }
 
@@ -463,7 +466,7 @@ int main(int argc, char *argv[])
                   nline += 1;
                   x = strlen(read+rlen)-1;
                   if (read[rlen+x] != '\n')
-                    { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
+                    { fprintf(stderr,"File %s, Line %d:",fname,nline);
                       fprintf(stderr," Fasta line is too long (> %d chars)\n",MAX_NAME-2);
                       goto error;
                     }
@@ -474,7 +477,7 @@ int main(int argc, char *argv[])
                     { rmax = ((int64) (1.2 * rmax)) + 1000 + MAX_NAME;
                       read = (char *) realloc(read,rmax+1);
                       if (read == NULL)
-                        { fprintf(stderr,"File %s.fasta, Line %d:",core,nline);
+                        { fprintf(stderr,"File %s, Line %d:",fname,nline);
                           fprintf(stderr," Out of memory (Allocating line buffer)\n");
                           goto error;
                         }
