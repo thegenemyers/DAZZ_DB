@@ -282,7 +282,7 @@ set then secondary reads from a given well are also ignored.  The remaining read
 constituting what we call the trimmed DB, are split amongst the blocks so that each
 block is of size -s * 1Mbp except for the last which necessarily contains a smaller
 residual.  The default value for -s is 200Mbp because blocks of this size can be
-compared by our "overlapper" dalign in roughly 16Gb of memory.  The blocks are very
+compared by our "overlapper" daligner in roughly 16Gb of memory.  The blocks are very
 space efficient in that their sub-index of the master .idx is computed on the fly
 when loaded, and the .bps and .qvs files (if a .db) of base pairs and quality values,
 respectively, is shared with the master DB.  Any relevant portions of tracks

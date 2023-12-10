@@ -636,7 +636,14 @@ int main(int argc, char *argv[])
       fprintf(ostub,DB_NBLOCK,nblock);    //  Rewind and record the new number of blocks
     }
   else
-    db.treads = ureads;
+    { db.treads = ureads;     //  Start with split into a single huge block
+      db.cutoff = 0;
+      db.allarr = 1;
+      fprintf(ostub,DB_NBLOCK,1);
+      fprintf(ostub,DB_PARAMS,db.totlen,0,1);
+      fprintf(ostub," %9d %9d\n",0,0);
+      fprintf(ostub," %9d %9d\n",ureads,ureads);
+    }
 
   rewind(ostub);
   fprintf(ostub,DB_NFILE,ofiles);
