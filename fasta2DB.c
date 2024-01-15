@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
 
     //  Buffer for accumulating .fasta sequence over multiple lines
 
-    rmax  = MAX_NAME + 60000;
+    rmax  = MAX_NAME + 10000000;
     read  = (char *) Malloc(rmax+1,"Allocating line buffer");
     if (read == NULL)
       goto error;
@@ -442,13 +442,13 @@ int main(int argc, char *argv[])
 
         // Check that the first line is a header and has PACBIO format.
 
-        if (read[strlen(read)-1] != '\n')
-          { fprintf(stderr,"File %s, Line 1: Fasta line is too long (> %d chars)\n",
-                           fname,MAX_NAME-2);
+        if (read[0] != '>')
+          { fprintf(stderr,"File %s, Line 1: First header in fasta file is missing\n",fname);
             goto error;
           }
-        if (!eof && read[0] != '>')
-          { fprintf(stderr,"File %s, Line 1: First header in fasta file is missing\n",fname);
+        if (read[strlen(read)-1] != '\n')
+          { fprintf(stderr,"File %s, Line 1: Fasta header line is too long (> %d chars)\n",
+                           fname,MAX_NAME-2);
             goto error;
           }
 
@@ -514,26 +514,28 @@ int main(int argc, char *argv[])
               else if (x == 3)
                 qv = 0;
 
-              rlen  = 0;
+              rlen = 0;
               while (1)
                 { eof = (fgets(read+rlen,MAX_NAME,input) == NULL);
-                  nline += 1;
                   x = strlen(read+rlen)-1;
-                  if (read[rlen+x] != '\n')
-                    { if (read[rlen] == '>')
-                        { fprintf(stderr,"File %s, Line %d:",fname,nline);
-                          fprintf(stderr," Fasta header line is too long (> %d chars)\n",
-                                         MAX_NAME-2);
+                  if (read[rlen] == '>')
+                    { if (read[rlen+x] != '\n')
+                        { fprintf(stderr,"File %s, Line %d: Fasta header line",fname,nline);
+                          fprintf(stderr," is too long (> %d chars)\n",MAX_NAME-2);
                           goto error;
                         }
-                      else
-                        x += 1;
+                      nline += 1;
+                      break;
                     }
-                  if (eof || read[rlen] == '>')
+                  if (eof)
                     break;
+                  if (read[rlen+x] == '\n')
+                    nline += 1;
+                  else
+                    x += 1;
                   rlen += x;
                   if (rlen + MAX_NAME > rmax)
-                    { rmax = ((int64) (1.2 * rmax)) + 1000 + MAX_NAME;
+                    { rmax = ((int64) (1.4 * rmax)) + 10000000 + MAX_NAME;
                       read = (char *) realloc(read,rmax+1);
                       if (read == NULL)
                         { fprintf(stderr,"File %s, Line %d:",fname,nline);

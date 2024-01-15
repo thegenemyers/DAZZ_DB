@@ -105,7 +105,11 @@ int main(int argc, char *argv[])
   { DAZZ_READ  *reads;
     char       *read;
     int         f, first;
-    char        nstring[WIDTH+1];
+    char       *nstring;
+
+    nstring = Malloc(WIDTH+1,"Allocating write buffer\n");
+    if (nstring == NULL)
+      exit (1);
 
     if (UPPER == 2)
       for (f = 0; f < WIDTH; f++)
@@ -205,6 +209,8 @@ int main(int argc, char *argv[])
           FCLOSE(ofile)
         first = last;
       }
+
+    free(nstring);
   }
 
   fclose(hdrs);
