@@ -635,3 +635,12 @@ size =        11 cutoff =         0 all = 0
       1011      1011
       1836      1836
 ```
+
+
+### Version Numbers
+
+v1.0 has been released, but if you need to refer to a later revision
+from the stable master branch, please use ``v1.0.yyyymmdd`` where
+``yyyy-mm-dd`` is the date of the commit used. This is important for
+method details in scientific papers, and for software packaging
+(e.g. Conda, HomeBrew, or Linux distribution packages).
