@@ -365,7 +365,6 @@ static void shotgun(DAZZ_DB *source, int nscaffs)
 
       scf = bin_search(nscaffs,weights,drand48()) - 1;   //  Pick a scaffold with probability
                                                          //    proportional to its length
-
       uni = drand48();
       len = (int) exp(nmean + nsdev*sample_unorm(uni));    //  Pick a read length
       if (len <= RSHORT)
